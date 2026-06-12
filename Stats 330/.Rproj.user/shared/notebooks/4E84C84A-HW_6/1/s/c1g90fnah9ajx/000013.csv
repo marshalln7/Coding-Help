@@ -1,0 +1,6 @@
+"0","# Generate predictions"
+"0","life$predicted_with_interactions <- predict(linear_model_interaction)"
+"0",""
+"0","ggplot(life, aes(x = PPGDP, y = LifeExp, color = Group)) +"
+"0","  geom_point() +"
+"0","  geom_line(aes(y = life$predicted_with_interactions))"

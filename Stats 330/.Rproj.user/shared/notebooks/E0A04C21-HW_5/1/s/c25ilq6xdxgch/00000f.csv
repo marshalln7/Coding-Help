@@ -1,0 +1,2 @@
+"0","lm <- lm(brozek ~ ., data = bodyfat_orig)"
+"0","autoplot(lm, which = 4)"

@@ -1,0 +1,6 @@
+"0","correlation <- cor(water$Precip, water$Runoff)"
+"0","print(correlation)"
+"1","[1]"
+"1"," 0.938436"
+"1","
+"

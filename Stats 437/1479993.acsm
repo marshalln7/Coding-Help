@@ -1,0 +1,39 @@
+<fulfillmentToken fulfillmentType="loan" auth="user" xmlns="http://ns.adobe.com/adept">
+  <distributor>urn:uuid:9cb786e8-586a-4950-8901-fff8d2ee6025</distributor>
+  <operatorURL>https://acs.ebookcentral.proquest.com/fulfillment</operatorURL>
+  <transaction>1479993_659157279</transaction>
+  <purchase>2026-03-31T08:27:47+00:00</purchase>
+  <expiration>2026-03-31T14:27:47+00:00</expiration>
+  <resourceItemInfo>
+    <resource>urn:uuid:e0000000-0000-0000-0000-000001479993</resource>
+    <resourceItem>0</resourceItem>
+    <metadata>
+      <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Epidemiology</dc:title>
+      <dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Gordis, Leon;</dc:creator>
+      <dc:publisher xmlns:dc="http://purl.org/dc/elements/1.1/">Elsevier</dc:publisher>
+      <dc:identifier xmlns:dc="http://purl.org/dc/elements/1.1/">1479993</dc:identifier>
+      <dc:format xmlns:dc="http://purl.org/dc/elements/1.1/">application/epub+zip</dc:format>
+      <dc:language xmlns:dc="http://purl.org/dc/elements/1.1/">en-US</dc:language>
+    </metadata>
+    <licenseToken>
+      <resource>urn:uuid:e0000000-0000-0000-0000-000001479993</resource>
+      <permissions>
+        <display>
+          <duration>604799</duration>
+        </display>
+        <excerpt>
+          <duration>604799</duration>
+          <count initial="42" max="42" incrementInterval="14399"/>
+        </excerpt>
+        <print>
+          <duration>604799</duration>
+          <count initial="42" max="42" incrementInterval="14399"/>
+        </print>
+        <play>
+          <duration>604799</duration>
+        </play>
+      </permissions>
+    </licenseToken>
+  </resourceItemInfo>
+  <hmac>83Hs9qII/UqrQ/m2DBKNQ75KOyg=</hmac>
+</fulfillmentToken>

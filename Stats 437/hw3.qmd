@@ -1,0 +1,81 @@
+---
+title: "Homework #3 — Diagnostics & Intro to Causal Inference"
+author: "Marshall Nielsen"
+format: pdf
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Instructions
+
+Answer the four questions below. Put all work (algebra, short answers, and any figures) inside this `.qmd` file. For questions 1 and 2, you may either
+
+-   
+
+    (a) typeset derivations using LaTeX in-line/display math, or
+
+-   
+
+    (b) include small images of handwritten steps (embed the images in the `.qmd`). If you have issues, I am happy to help you to embed these images in the .qmd file.
+
+Wherever I ask you to “show steps,” *explicitly show* the algebra and intermediate steps (Bayes’ rule / law-of-total-probability expansions) because points are awarded for clarity of reasoning and correct algebra.
+
+------------------------------------------------------------------------
+
+## Question 1 — Deriving Negative Predictive Value (NPV) showing steps
+
+A. Starting from the definition $\displaystyle \text{NPV} = P(\text{Disease Absent} \mid \text{Test Negative})$, derive an expression for NPV in terms of **sensitivity**, **specificity**, and **prevalence**.
+
+-   Show each algebraic or probability step that uses:
+    -   **Bayes' rule** (explicitly write the Bayes formula you use), showing all of the conditional and marginal probabilities necessary to calculate the desired quantity.
+    -   the **law of total probability** to expand any marginal probability in the denominator.
+-   Present the final boxed formula (but **you must** show how you got there; do not only write the final line).
+
+![](images/clipboard-3896262612.jpeg)
+
+B. Briefly (1–2 sentences) interpret how prevalence affects NPV.
+
+The higher the prevalence of the disease, the lower the Negative Predictive Value is going to be, which we can see because it'll affect the numerator and the first term of the denominator in the same way, but then it'll increase the second term of the denominator
+
+## Question 2 — Sequential testing (ER scenario; show steps + Bayes)
+
+In class, Dr. White incorrectly talked about his son's ER experience as a simultaneous testing procedure instead of a sequential testing procedure. We'll rework this here.
+
+**Scenario:** A nonresponsive minor arrives in the ER after accidental suspected ingestion of a toxin. Treating for this toxin is costly and risky, so clinicians use sequential testing:
+
+-   A patient is considered positive only if **both** tests are positive. Test 2 is only applied if Test 1 is positive.
+-   Test 1: screening — high sensitivity $sens_1$, moderate/low specificity $spec_1$.
+-   Test 2: confirmatory — high specificity $spec_2$ and sensitivity $sens_2$ (may be high or moderate).
+
+You should assume conditional independence of the two tests given toxin status. This means, $$Pr(\text{Test}_1 +, \text{Test}_2+ | \text{Toxin}+) = Pr(\text{Test}_1 + | \text{Toxin}+)Pr( \text{Test}_2+ | \text{Toxin}+),$$ and this result holds for other types of test results and disease status.
+
+A. **Derive net sensitivity** for the sequential rule in terms of $sens_1, spec_1, sens_2, spec_2$. This is the probability of getting two positives given Toxin$+$. The result is in our slides, but you should derive this showing all steps and any assumptions you make.
+
+B. **Derive net specificity** for the sequential rule in terms of $sens_1, spec_1, sens_2, spec_2$. This is the probability of getting one negative (one either the first or second test) given Toxin$-$. Remember that the you only have Test 2 if Test 1 is positive. The result is in the slides, but you should derive this showing all steps and any assumptions you make.
+
+![](images/clipboard-2543729251.png)
+
+**C.** Provide a short clinical interpretation discussing the trade-off clinicians face (fewer false positives vs. more false negatives) and why that matters in this ER scenario.
+
+So the tradeoff here is that you get much lower sensitivity from your combined test, but you get much higher specificity. This would be most useful in situations where treatment is risky and expensive so you want the chance of treating someone who doesn't actually have the disease to be as small as possible.
+
+## Question 3 — The "Carefree" Smoker
+
+Early debates about maternal smoking and low birth weight included arguments that the observed association might reflect broader lifestyle/behavioral characteristics (e.g., alcohol use, contraceptive use, differences in pregnancy planning), not a direct causal effect of smoking.
+
+Give **2–3 sentences** that explain *why* these lifestyle variables could make researchers doubt that smoking directly causes low birth weight. Mention at least one concrete possible confounder (or set of confounders) and the direction in which it could bias the estimated effect of smoking.
+
+Alcohol use and lifestyle conscientiousness together could form a very important set of confounders for this problem. It might be measured that women who smoke more during their pregnancies have children with lower birth weights and assumed that this was a causal relationship, when in actuality it's the fact that smokers are also more likely to drink alcohol as well because both are manifestations of a low-conscientiousness lifestyle, and it's actually the alcohol that's causing the low birth weights, not the smoking.
+
+## Question 4 — Simpson's paradox: comparing hospitals
+
+A city compares Hospital A and Hospital B on surgical survival (we've seen this phenomenon before):
+
+-   **Aggregate:** Hospital A has a higher overall mortality rate than Hospital B.
+-   **Stratified by patient condition (Critically Ill vs Stable):** Hospital A has lower mortality in both strata than Hospital B.
+
+Explain why the aggregate data are misleading in **3–4 sentences**. Identify one or more lurking variables that could explain this result. You could think about how different case-mix (e.g., Hospital A treated many more critically ill patients) can produce the paradox. Suggest what additional information or analysis would help determine which hospital actually provides better care (e.g., risk-adjusted comparison, standardized mortality ratio, stratified rates, or other tools).
+
+Aggregate data are misleading because we don't know what unseen factors might be playing a role in outcomes under the surface. For instance, if Hospital A specializes in diseases with a high mortality rate like cancer and other terminal illnesses, then the sum mortality rate is going to be a lot higher than it is for Hospital B, even if Hospital A does a better job at decreasing mortality for both critically ill and stable people. That small advantage for both groups being in hospital A would be overwhelmed by the trend of more critical illnesses being treated and therefore more deaths occurring at hospital A.

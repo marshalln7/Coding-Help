@@ -1,0 +1,477 @@
+---
+title: "Counterfactuals, Propensity Scores, and Matching"
+subtitle: "PS Matching (Explanations & Concepts)"
+author: "Philip White"
+format:
+  revealjs:
+    slide-number: true
+    incremental: true
+    theme: serif
+    css: slides.css
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+## Learning goals
+
+By the end of this lecture, you should be able to:
+
+-   Explain the **counterfactual (potential outcomes) framework** in depth\
+-   Describe why randomized trials remove confounding
+-   Define the **propensity score** and state the balancing property clearly\
+-   Explain how matching approximates *pseudo-randomization*\
+-   State the identification assumptions (consistency, exchangeability, positivity) and their practical implications\
+-   Describe diagnostics (overlap, balance) and trade-offs in matching
+
+------------------------------------------------------------------------
+
+## The fundamental problem of causal inference
+
+We want to know for each person:
+
+-   The outcome if they **receive** the treatment: $Y_i(1)$\
+
+-   The outcome if they **do not** receive the treatment: $Y_i(0)$
+
+-   But we only ever observe one of these two potential outcomes.\
+
+-   This missing-data structure is the *core* difficulty of causal inference.
+
+-   **Key implication:** every causal comparison is, at core, a prediction about a missing counterfactual.
+
+------------------------------------------------------------------------
+
+## Potential outcomes notation
+
+For unit $i$:
+
+-   $Y_i(1)$ — potential outcome under treatment\
+-   $Y_i(0)$ — potential outcome under control
+
+Observed data:
+
+-   Treatment indicator: $W_i \in \{0,1\}$; 1 = Treated
+
+-   Observed outcome: $Y_i = W_i Y_i(1) + (1-W_i)Y_i(0)$
+
+-   **Important subtlety:**
+
+    -   Potential outcomes are *conceptual* quantities, not observed.
+    -   They are not random draws we can observe for each subject simultaneously.
+    -   This makes causal inference fundamentally about *comparing groups*.
+
+------------------------------------------------------------------------
+
+## Individual vs average causal effects — intuition
+
+-   Individual causal effect: $Y_i(1) - Y_i(0)$
+
+    -   unobservable if each unit only has one measured value.
+
+-   Average Treatment Effect (ATE): $E[Y(1)-Y(0)]$ — Average over the population.
+
+-   Average Treatment effect on the Treated (ATT): $E[Y(1)-Y(0) \mid W=1]$ — Effect for those who actually received treatment.
+
+-   **Which estimand matters?** It depends on the scientific question and potentially your data.
+
+-   Matching normally gives estimates closer to the ATT because we explicitly find controls that look like treated units.
+
+------------------------------------------------------------------------
+
+## Why randomized controlled trials (RCTs) work
+
+In a well-conducted randomized trial:
+
+-   Treatment assignment $W$ is made independently of covariates and potential outcomes.
+-   Formally: $\{Y(1),Y(0)\} \perp W$ and $W \perp X$.
+
+**Mechanistic reasons:**
+
+1.  Randomization breaks systematic association between covariates and treatment.\
+2.  With enough data (i.e., sample size), covariate distributions in treated and control arms will be similar (covariate balance).
+
+-   In clinical trial papers, this is generally shown in Table 1.
+
+3.  Balance implies any difference in outcomes is attributable to treatment (up to chance).
+
+**Takeaway:** randomization transforms a causal problem into a (comparative) statistical inference problem under well-understood sampling variability.
+
+------------------------------------------------------------------------
+
+## How randomization yields unbiased estimators
+
+Suppose we estimate Average Treatment Effect (ATE) by difference in means:
+
+$$\widehat{ATE} = \bar{Y}_{W=1} - \bar{Y}_{W=0}.$$
+
+Because $\{Y(1),Y(0)\} \perp W$,
+
+-   The treated and control group are a random sample of the full population with respect to potential outcomes.
+-   Each sample mean is an unbiased estimator of the corresponding potential outcome mean.
+-   Difference of unbiased estimators → unbiased estimator of ATE.
+
+------------------------------------------------------------------------
+
+## Why observational studies are harder
+
+Doctors may preferentially give a new drug to sicker patients.
+
+-   Let's assume sicker patients are more likely to die.
+-   A naive comparison (treated vs untreated) will confuse treatment effect with baseline sickness.
+-   Observational assignment creates correlation between $W$ and baseline covariates $X$, and those $X$ also affect outcomes.
+-   We must therefore adjust for $X$ to isolate treatment effect.
+
+------------------------------------------------------------------------
+
+## Identification assumptions
+
+To identify causal effects from observational data we generally require:
+
+1.  **Consistency** — the observed outcome corresponds to the potential outcome under the observed treatment: if $W_i=1$ then $Y_i = Y_i(1)$.
+
+2.  **Conditional exchangeability (no unmeasured confounding)** — treatment is independent of potential outcomes conditional on observed covariates $X$: $\{Y(1),Y(0)\} \perp W \mid X.$
+
+3.  **Positivity (overlap)** — for all $x$ with positive support, $0 < P(W=1 \mid X=x) < 1.$
+
+-   **Practical note:** these are assumptions about the design and subject-matter reality — they cannot be fully verified by the data alone.
+
+------------------------------------------------------------------------
+
+## Consistency — practical pitfalls
+
+**Consistency** — the observed outcome corresponds to the potential outcome under the observed treatment: if $W_i=1$ then $Y_i = Y_i(1)$.
+
+Interpretation: The observed outcome corresponds exactly to the potential outcome under the treatment actually received.
+
+-   The treatment is **well-defined**;
+
+    -   If "treatment" is loosely defined (e.g., "any antibiotic"), then different versions of treatment may have different effects — violating consistency.\
+
+-   There are no multiple, hidden versions of treatment;
+
+    -   Interventions that vary in dose, duration, or delivery may break the assumption unless explicitly modeled.
+
+-   Treatment is applied in a comparable way across individuals.
+
+-   **Class exercise (quick):** think of an intervention where consistency might fail.
+
+------------------------------------------------------------------------
+
+## Conditional exchangeability — what it hides
+
+**Conditional exchangeability (no unmeasured confounding)** — treatment is independent of potential outcomes conditional on observed covariates $X$: $\{Y(1),Y(0)\} \perp W \mid X.$
+
+Interpretation: once we control for $X$, there are no other systematic differences between treated and controls that would affect the outcome.
+
+-   Exchangeability requires that **all confounders** are measured and included in $X$.\
+
+-   Unmeasured confounding is the Achilles' heel of observational causal inference.\
+
+-   Subject-matter expertise is essential to plausibly assert conditional exchangeability.
+
+-   **Tip:** use directed acyclic graphs (DAGs) to reason about which variables to include (and which to avoid).
+
+------------------------------------------------------------------------
+
+## Positivity — diagnostics & consequences
+
+**Positivity (overlap)** — for all $x$ with positive support (i.e., $x$ that can occur), $0 < P(W=1 \mid X=x) < 1.$
+
+Interpretation: for covariate profiles we see, there must be non-zero probability of being treated and untreated.
+
+-   Check overlap by comparing distributions of estimated treatment probabilities (propensity scores) between treated and control groups.\
+
+-   If there are regions where only treated or only controls exist, estimates relying on extrapolation to those regions will be fragile.
+
+-   **Practical remedy:** restrict the analysis to the region of common support (trimming), or change estimand (e.g., focus on subgroup with overlap).
+
+**Class exercise (quick):** Can you think of an intervention where positivity might fail?
+
+------------------------------------------------------------------------
+
+## The curse of dimensionality & the idea behind propensity scores
+
+When $X$ is high-dimensional, exact matching on $X$ is infeasible. The propensity score (PS) is the probability of treatment as a function of covariate. The PS ($e(X)$) compresses covariates:
+
+$$e(X) = P(W=1 \mid X).$$
+
+Rosenbaum & Rubin (1983) showed that if control for $X$ is sufficient for exchangeability, then control for $e(X)$ is also sufficient
+
+-   I.e., treatment is independent of $X$ conditional on the score.
+-   This reduces a multivariate problem to a univariate balancing problem.
+
+------------------------------------------------------------------------
+
+## The balancing property — formal statement & intuition
+
+**Formal:** If $\{Y(1),Y(0)\} \perp W \mid X$, then
+
+$$W \perp X \mid e(X).$$
+
+-   **Intuition:** units with the same propensity score have the same distribution of covariates $X$ (in expectation).
+    -   Thus matching or stratifying on $e(X)$ pairs or groups units that are similar in all measured covariates.
+-   **Important caveat:** the property holds for *true* propensity scores.
+    -   When we estimate $e(X)$ (e.g., logistic regression), balance is approximate and must be checked.
+
+------------------------------------------------------------------------
+
+## What propensity scores do *not* do
+
+-   They cannot adjust for confounders that were not measured or included in the PS model.\
+-   Good overlap and balance on observed X do not imply no unmeasured confounding.\
+-   PS methods do not solve all design problems (poor measurement, selection bias).
+
+------------------------------------------------------------------------
+
+## Estimating the propensity score: what is required?
+
+Recall the propensity score:
+
+$$e(X) = P(W = 1 \mid X)$$
+
+To estimate it, we must specify a model for **treatment assignment** given observed covariates $X$.
+
+**Key point:**
+
+> -   The goal of the propensity score model is **covariate balance**,\
+> -   not accurate prediction of treatment.
+
+This is fundamentally different from typical predictive modeling.
+
+------------------------------------------------------------------------
+
+## Common methods for estimating the propensity score
+
+Several approaches are commonly used in practice:
+
+### 1. Logistic regression (most common)
+
+-   Model: $\text{logit}(P(W=1 \mid X)) = X\beta$
+-   Advantages:
+    -   Interpretable
+    -   Easy to implement
+    -   Works well with moderate numbers of covariates
+-   Limitations:
+    -   Requires correct specification of functional form
+    -   Misses nonlinearities or interactions if not included
+
+------------------------------------------------------------------------
+
+## Flexible and machine-learning approaches
+
+### 2. Generalized additive models (GAMs)
+
+-   Allow nonlinear relationships via smooth terms
+-   Improve balance when relationships are nonlinear
+-   Still reasonably interpretable
+
+### 3. Tree-based and ensemble methods
+
+-   Examples: random forests, gradient boosting
+-   Automatically capture interactions and nonlinearities
+-   Often improve balance in complex settings
+
+**Caution:**
+
+> -   Better prediction does *not* guarantee better balance.\
+> -   Always check balance after estimation.
+
+------------------------------------------------------------------------
+
+## How to evaluate a propensity score model
+
+A propensity score model is *good* if it:
+
+-   Produces **overlap** between treated and control units
+-   Achieves **balance** on covariates after adjustment
+-   Avoids extreme probabilities near 0 or 1
+
+It is **not** judged by:
+
+-   AUC
+-   classification accuracy
+-   prediction error
+
+> Diagnostics come *after* estimation and determine success.
+
+------------------------------------------------------------------------
+
+## How the propensity score can be used
+
+Once estimated, the propensity score can be used in several ways:
+
+-   Regression adjustment: Include $e(X)$ as a covariate in an outcome model instead of all the $X$
+
+-   Stratification (subclassification): Divide data into strata based on quantiles of $e(X)$
+
+-   Inverse probability weighting (IPW): Weight observations by inverse probability of received treatment
+
+-   **Matching**: Pair treated and control units with similar $e(X)$
+
+All rely on the same balancing property but target **different estimands**.
+
+------------------------------------------------------------------------
+
+## Choosing among propensity score methods
+
+There is no single “best” approach. Choice depends on:
+
+-   Scientific question (ATE vs ATT)
+
+-   Sample size and overlap
+
+-   Willingness to discard units
+
+-   Interpretability vs flexibility
+
+-   **Key takeaway:**
+
+> -   The propensity score is a *toolkit*, not a single method.
+
+-   Matching is often used first because it:
+    -   Makes design decisions explicit
+    -   Encourages balance diagnostics
+    -   Avoids extrapolation outside common support
+
+------------------------------------------------------------------------
+
+## Matching — analogy to randomization
+
+Matching seeks to
+
+-   Create pairs or groups where the treated and control units are similar in observed covariates.
+
+-   This is "pseudo-randomization": after matching, the treated units in the matched set have comparable controls
+
+-   Comparisons within matched sets mimic what randomization achieves: balance of covariates.
+
+-   **Difference from RCTs:** matching balances observed covariates conditionally and depends on modeling/choice;
+
+    -   RCTs balance (in expectation) both observed and unobserved covariates because of random assignment.
+
+------------------------------------------------------------------------
+
+## Types of matching (overview)
+
+-   Exact matching: identical covariate values — only works with few discrete covariates.\
+-   **Nearest neighbor matching:** pair treated unit with control with closest propensity score.\
+-   Caliper matching: restrict matches to within a maximum distance on the PS.\
+-   Matching with/without replacement: allow reuse of controls (improves quality at expense of variance).\
+-   Optimal matching: global algorithm minimizing overall distance.\
+-   Full matching & subclassification: create many small matched sets or strata.
+
+Each choice affects bias/variance trade-offs and sample retention. We'll focus on Nearest-neighbor matching using the propensity score.
+
+------------------------------------------------------------------------
+
+## Trade-offs in matching: balance vs sample size
+
+-   Tighter matching (small caliper, exact matching on key covariates) yields better covariate balance and less bias but may drop many treated units (loss of precision and estimand changes).\
+-   Looser matching retains more units but may leave residual covariate imbalance.
+
+**Rule of thumb:** check balance first, then consider how many units were discarded and whether the estimand remains relevant.
+
+------------------------------------------------------------------------
+
+## Practical PS workflow (design-first emphasis)
+
+1.  Define treatment and outcome; choose estimand (ATE vs ATT).\
+2.  Choose pre-treatment covariates $X$ guided by subject-matter knowledge and DAGs.\
+3.  Estimate propensity scores (logistic regression, machine learning).\
+4.  Check overlap of PS distributions across groups.\
+5.  Match (or weight/stratify) based on PS.\
+6.  Check covariate balance (standardized mean differences, love plots).\
+7.  Estimate causal effect in matched/weighted sample, using appropriate variance estimation.\
+8.  Sensitivity analyses for unmeasured confounding and model choices.
+
+------------------------------------------------------------------------
+
+## Choosing covariates for the propensity score — practical guidance
+
+-   Include **confounders**: variables that affect both treatment and outcome.\
+-   Include strong predictors of treatment even if unrelated to outcome (can improve precision).\
+-   Do **not** include post-treatment variables or mediators.\
+-   Instrumental variables (predict treatment but not outcome) should generally be excluded from PS model.
+
+When in doubt, prefer inclusion of baseline covariates — but be aware of possible increased variance.
+
+------------------------------------------------------------------------
+
+## Estimating propensity scores — model choices
+
+-   Common: logistic regression: $\text{logit}(e(X)) = X\beta$.\
+-   Alternatives: boosted trees, random forests, generalized additive models — can capture nonlinearities and interactions.\
+-   Important: aim for *balance*, not predictive accuracy (AUC). Use diagnostics to tune the model.
+
+**Practical tip:** include interaction terms and non-linear terms when subject-matter suggests they matter.
+
+------------------------------------------------------------------------
+
+## Diagnostics: overlap (common support)
+
+-   Visual: kernel density plots, histograms of estimated PS by treatment group.\
+-   Numerical: fraction of treated units outside PS range of controls (and vice versa).\
+-   Remedy for poor overlap: trimming, alternative estimands, or targeted data collection.
+
+------------------------------------------------------------------------
+
+## Diagnostics: covariate balance
+
+-   Standardized mean difference (SMD) is common.
+    -   Difference in means divided by pooled standard deviation for each covariate.
+    -   Primary Target: all \|SMD\| \< 0.1 or 0.25 (both are common rules of thumb).\
+    -   Secondary Target: all variance ratios between 0.5 and 2.0.
+-   Love plots (cobalt) show SMDs before and after matching for multiple covariates.\
+-   Check balance for transformed variables or interactions that were included in PS.
+
+**Remember:** balance is the primary criterion for diagnosing whether matching achieved its goal.
+
+------------------------------------------------------------------------
+
+## Estimation after matching — what to do
+
+-   For nearest-neighbor 1:1 without replacement, a simple difference in matched means estimates ATT (but account for paired structure for inference).\
+-   Regression adjustment in the matched sample (outcome \~ treatment + covariates) can improve precision and correct residual imbalance (doubly robust).\
+-   Use robust standard errors or bootstrap to account for matching-induced dependence when appropriate.
+
+------------------------------------------------------------------------
+
+## Sensitivity analyses & unmeasured confounding
+
+-   No amount of PS modeling can guarantee no unmeasured confounding. Sensitivity analyses (e.g., Rosenbaum bounds, bias formulas) can quantify how strong an unmeasured confounder would need to be to explain away the observed effect.\
+-   Report plausible ranges and discuss subject-matter plausibility.
+
+------------------------------------------------------------------------
+
+## Common pitfalls and how to avoid them
+
+-   **Using PS solely to predict treatment** (AUC) rather than to balance covariates — *avoid*.\
+-   **Including post-treatment variables** — always exclude.\
+-   **Ignoring overlap or reporting results in regions with no support** — check and report trimmed samples.\
+-   **Failing to report what estimand was targeted** (ATE vs ATT) — be explicit.\
+-   **Relying on a single method without sensitivity checks** — compare methods (matching, weighting) and discuss robustness.
+
+------------------------------------------------------------------------
+
+## Recap: what we discussed in this section
+
+-   Discussed counterfactual framework and why RCTs avoid confounding.\
+
+-   Explained the propensity score as a dimensionality reduction tool.\
+
+-   Matching as a method aimed at creating pseudo-randomized comparisons.\
+
+-   Emphasized diagnostics (overlap, balance) and practical trade-offs.
+
+-   Next up: Code and tutorial
+
+------------------------------------------------------------------------
+
+## Suggested readings if interested
+
+-   P.R. Rosenbaum, D.B. Rubin. The central role of the propensity score in observational studies for causal effects. (Biometrika, 1983).\
+-   E.A. Stuart. Matching methods for causal inference: A review and a look forward. (Statistical Science, 2010).
+-   N. Greifer, E.A. Stuart. Choosing the Causal Estimand for Propensity Score Analysis of Observational Studies (https://arxiv.org/abs/2106.10577)
+-   P.C. Austin. An Introduction to Propensity Score Methods for Reducing the Effects of Confounding in Observational Studies. (Multivariate Behavioral Research, 2011).

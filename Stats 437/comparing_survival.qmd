@@ -1,0 +1,800 @@
+---
+title: "Survival Analysis — Comparing Survival Curves"
+author: "Philip White"
+format:
+  revealjs:
+    slide-number: true
+    incremental: true
+    theme: serif
+    css: slides.css
+    scrollable: true
+    margin: 0
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(survival)
+library(survminer)
+
+theme_set(theme_minimal(base_size = 14))
+```
+
+------------------------------------------------------------------------
+
+## Lecture 2 — Roadmap
+
+1.  Review Kaplan–Meier curves
+2.  Comparing survival curves visually
+3.  Risk sets and expected deaths
+4.  The **log-rank test**
+
+------------------------------------------------------------------------
+
+## Review: Kaplan–Meier Curves
+
+Kaplan–Meier estimates survival as
+
+$$
+\widehat S(t) =
+\prod_{t_j \le t}
+\left(1 - \frac{d_j}{n_j}\right)
+$$
+
+where
+
+-   $n_j$ = number at risk just before time $t_j$
+-   $d_j$ = number of events at $t_j$
+
+------------------------------------------------------------------------
+
+## Example dataset - what are the event times?
+
+::: fragment
+-   `event = 1` → death occurred
+-   `event = 0` → right censored
+:::
+
+::: fragment
+| ID (we'll fix this soon) | Time | Event |
+|:------------------------:|:----:|:-----:|
+|            1             |  1   |   1   |
+|            7             |  1   |   0   |
+|            2             |  2   |   0   |
+|            3             |  3   |   1   |
+|            8             |  3   |   1   |
+|            9             |  3   |   1   |
+|            13            |  4   |   1   |
+|            10            |  5   |   0   |
+|            14            |  5   |   0   |
+|            4             |  6   |   1   |
+|            15            |  6   |   1   |
+|            16            |  6   |   1   |
+|            11            |  7   |   0   |
+|            5             |  8   |   0   |
+|            6             |  8   |   0   |
+|            12            |  8   |   0   |
+|            17            |  8   |   0   |
+|            18            |  8   |   0   |
+:::
+
+------------------------------------------------------------------------
+
+## Step-by-step KM calculation
+
+::: fragment
+### What to notice
+
+-   The censored observation at time 2 lowers the risk set before time 3.
+-   The two censored observations at time 5 lower the risk set before time 6.
+-   KM only drops at event times, not censoring times.
+:::
+
+::: fragment
+| Time | At Risk $n_j$ | Deaths $d_j$ | Conditional Survival $1 - d_j/n_j$ | Cumulative $S(t)$ |
+|----|:--:|:--:|:--:|:--:|
+| 0 | 18 | 0 | 1.0000 | 1.0000 |
+| 1 | 18 | 1 | $1 - 1/18 = 17/18$ | $17/18 = 0.944$ |
+| 3 | 15 | 3 | $1 - 3/15 = 12/15$ | $(17/18)(12/15) = 34/45 = 0.756$ |
+| 4 | 12 | 1 | $1 - 1/12 = 11/12$ | $(34/45)(11/12) = 187/270 = 0.693$ |
+| 6 | 9 | 3 | $1 - 3/9 = 6/9$ | $(187/270)(6/9) = 187/405 = 0.462$ |
+:::
+
+------------------------------------------------------------------------
+
+## Overall KM Curve
+
+::: panel-tabset
+### Code
+
+```{r,eval = FALSE}
+# ----------------------------
+# Create dataset and fit model
+# ----------------------------
+data_use <- data.frame(
+  time = c(1,2,3,6,8,8,
+           1,3,3,5,7,8,
+           4,5,6,6,8,8),
+  event = c(1,0,1,1,0,0,
+            0,1,1,0,0,0,
+            1,0,1,1,0,0),
+  group = factor(c(rep("A",6), rep("B",6), rep("C",6)))
+)
+
+
+fit <- survfit(Surv(time, event) ~ 1, data = data_use)
+
+# ----------------------------
+# Plot KM curves
+# ----------------------------
+out <- suppressWarnings(
+  ggsurvplot(
+    fit,
+    data = data_use,
+    risk.table = TRUE,
+    conf.int = FALSE,
+    xlim = c(0, 8),
+    linetype = "strata"
+  )
+)
+
+out$plot
+```
+
+### Plot
+
+```{r,echo = FALSE}
+
+# ----------------------------
+# Create dataset and fit model
+# ----------------------------
+data_use <- data.frame(
+  time = c(1,2,3,6,8,8,
+           1,3,3,5,7,8,
+           4,5,6,6,8,8),
+  event = c(1,0,1,1,0,0,
+            0,1,1,0,0,0,
+            1,0,1,1,0,0),
+  group = factor(c(rep("A",6), rep("B",6), rep("C",6)))
+)
+
+
+fit <- survfit(Surv(time, event) ~ 1, data = data_use)
+
+# ----------------------------
+# Plot KM curves
+# ----------------------------
+out <- suppressWarnings(
+  ggsurvplot(
+    fit,
+    data = data_use,
+    risk.table = TRUE,
+    conf.int = FALSE,
+    xlim = c(0, 8),
+    linetype = "strata"
+  )
+)
+out$plot
+```
+:::
+
+------------------------------------------------------------------------
+
+## Comparing Survival Curves
+
+::: fragment
+Suppose we have **two or more** groups:
+
+-   treatment vs. control
+-   competing therapies
+:::
+
+::: fragment
+We can estimate multiple KM curves. But the key question:
+
+> Are the survival curves statistically different?
+:::
+
+------------------------------------------------------------------------
+
+## Visual Comparison
+
+-   Two curves may appear different.
+
+-   But visual inspection can be misleading.
+
+-   We need a **formal statistical test**.
+
+------------------------------------------------------------------------
+
+## Dataset with Group (18 observations)
+
+::: fragment
+-   `event = 1` → death occurred
+-   `event = 0` → right censored
+:::
+
+::: fragment
+| ID  | Group | Time | Event |
+|:---:|:-----:|:----:|:-----:|
+|  1  |   A   |  1   |   1   |
+|  2  |   A   |  2   |   0   |
+|  3  |   A   |  3   |   1   |
+|  4  |   A   |  6   |   1   |
+|  5  |   A   |  8   |   0   |
+|  6  |   A   |  8   |   0   |
+|  7  |   B   |  1   |   0   |
+|  8  |   B   |  3   |   1   |
+|  9  |   B   |  3   |   1   |
+| 10  |   B   |  5   |   0   |
+| 11  |   B   |  7   |   0   |
+| 12  |   B   |  8   |   0   |
+| 13  |   C   |  4   |   1   |
+| 14  |   C   |  5   |   0   |
+| 15  |   C   |  6   |   1   |
+| 16  |   C   |  6   |   1   |
+| 17  |   C   |  8   |   0   |
+| 18  |   C   |  8   |   0   |
+:::
+
+------------------------------------------------------------------------
+
+## Split the data by group
+
+:::::: columns
+::: {.column width="33%"}
+### Group A
+
+| ID  | Time | Event |
+|:---:|:----:|:-----:|
+|  1  |  1   |   1   |
+|  2  |  2   |   0   |
+|  3  |  3   |   1   |
+|  4  |  6   |   1   |
+|  5  |  8   |   0   |
+|  6  |  8   |   0   |
+:::
+
+::: {.column width="33%"}
+### Group B
+
+| ID  | Time | Event |
+|:---:|:----:|:-----:|
+|  7  |  1   |   0   |
+|  8  |  3   |   1   |
+|  9  |  3   |   1   |
+| 10  |  5   |   0   |
+| 11  |  7   |   0   |
+| 12  |  8   |   0   |
+:::
+
+::: {.column width="33%"}
+### Group C
+
+| ID  | Time | Event |
+|:---:|:----:|:-----:|
+| 13  |  4   |   1   |
+| 14  |  5   |   0   |
+| 15  |  6   |   1   |
+| 16  |  6   |   1   |
+| 17  |  8   |   0   |
+| 18  |  8   |   0   |
+:::
+::::::
+
+------------------------------------------------------------------------
+
+## Group A — KM by hand
+
+::: fragment
+-   Event times for Group A: **1, 3, 6**
+-   Censoring times for Group A: **2,8**
+:::
+
+::: fragment
+### Step-by-step
+
+| Time | At Risk $n_j$ | Deaths $d_j$ | Conditional Survival $1 - d_j/n_j$ | Cumulative $\widehat S(t)$ |
+|:--:|:--:|:--:|:--:|:--:|
+| 0 | 6 | 0 | 1 | 1 |
+| 1 | 6 | 1 | $1 - 1/6 = 5/6$ | $1 \times 5/6 \approx 0.83$ |
+| 3 | 4 | 1 | $1 - 1/4 = 3/4$ | $5/6 \times 3/4 = 5/8 \approx 0.625$ |
+| 6 | 3 | 1 | $1 - 1/3 = 2/3$ | $5/8 \times 2/3 = 5/12 \approx 0.417$ |
+:::
+
+::: fragment
+### What to notice
+
+-   The censor at time 2 reduces the risk set before time 3.
+-   The censors at time 8 do not change the curve, because there are no later event times.
+:::
+
+------------------------------------------------------------------------
+
+## Group B — KM by hand
+
+-   Event time for Group B: **3**
+-   Censoring times for Group B: **1,5,7,8**
+
+::: fragment
+### Step-by-step
+
+| Time | At Risk $n_j$ | Deaths $d_j$ | Conditional Survival $1 - d_j/n_j$ | Cumulative $S(t)$ |
+|----|---:|---:|---:|---:|
+| 0 | 6 | 0 | 1.0000 | 1.0000 |
+| 3 | 5 | 2 | $1 - 2/5 = 3/5$ | $3/5 = 0.6$ |
+
+### What to notice
+
+-   The censor at time 1 removes one subject before the event time 3.
+-   Both deaths at time 3 occur together, so the KM curve makes one drop there.
+-   After time 3, there are no more deaths, so the curve stays flat.
+:::
+
+------------------------------------------------------------------------
+
+## Group C — KM by hand
+
+-   Event times for Group C: **4, 6**
+-   Censoring times for Group C: \*1,5,7,8\*\*
+
+### Step-by-step
+
+| Time | At Risk $n_j$ | Deaths $d_j$ | Conditional Survival $1 - d_j/n_j$ | Cumulative $S(t)$ |
+|----|---:|---:|---:|---:|
+| 0 | 6 | 0 | 1.0000 | 1.0000 |
+| 4 | 6 | 1 | $1 - 1/6 = 5/6$ | $5/6 = 0.83$ |
+| 6 | 4 | 2 | $1 - 2/4 = 1/2$ | $5/12 = 0.417$ |
+
+### What to notice
+
+-   The censor at time 5 reduces the risk set before time 6.
+-   Two deaths occur at time 6, so the curve drops once at that time using $d_j = 2$.
+
+------------------------------------------------------------------------
+
+## Combined survival values
+
+Use this table to sketch the three KM curves on the same axes.
+
+| Time | Group A | Group B | Group C |
+|------|--------:|--------:|--------:|
+| 0    |  1.0000 |  1.0000 |  1.0000 |
+| 1    |  0.8333 |  1.0000 |  1.0000 |
+| 2    |  0.8333 |  1.0000 |  1.0000 |
+| 3    |  0.6250 |  0.6000 |  1.0000 |
+| 4    |  0.6250 |  0.6000 |  0.8333 |
+| 5    |  0.6250 |  0.6000 |  0.8333 |
+| 6    |  0.4167 |  0.6000 |  0.4167 |
+| 7    |  0.4167 |  0.6000 |  0.4167 |
+| 8    |  0.4167 |  0.6000 |  0.4167 |
+
+------------------------------------------------------------------------
+
+## Plot in R
+
+Which survival curve is best? Are they significantly different?
+
+::: panel-tabset
+### Code
+
+```{r,eval = FALSE}
+# ----------------------------
+# Create dataset and fit model
+# ----------------------------
+
+
+fit <- survfit(Surv(time, event) ~ group, data = data_use)
+
+# ----------------------------
+# Plot KM curves
+# ----------------------------
+out <- suppressWarnings(
+  ggsurvplot(
+    fit,
+    data = data_use,
+    risk.table = TRUE,
+    conf.int = FALSE,
+    xlim = c(0, 8),
+    linetype = "strata"
+  )
+)
+
+out$plot
+```
+
+### Plot
+
+```{r,echo = FALSE}
+# ----------------------------
+# Create dataset and fit model
+# ----------------------------
+data_use <- data.frame(
+  time = c(1,2,3,6,8,8,
+           1,3,3,5,7,8,
+           4,5,6,6,8,8),
+  event = c(1,0,1,1,0,0,
+            0,1,1,0,0,0,
+            1,0,1,1,0,0),
+  group = factor(c(rep("A",6), rep("B",6), rep("C",6)))
+)
+
+fit <- survfit(Surv(time, event) ~ group, data = data_use)
+
+# ----------------------------
+# Plot KM curves
+# ----------------------------
+out <- suppressWarnings(
+  ggsurvplot(
+    fit,
+    data = data_use,
+    risk.table = TRUE,
+    conf.int = FALSE,
+    xlim = c(0, 8),
+    linetype = "strata"
+  )
+)
+
+out$plot
+```
+:::
+
+------------------------------------------------------------------------
+
+## Preparing for the Log-Rank Test
+
+-   The log-rank test compares the survival curves between groups.
+-   It is based on **observed** vs **expected** number of events in each group at each event time, summed across times.
+-   We can now do the following
+    -   compute the risk sets and events at each time (we did this),
+    -   compute the expected counts under the null that survival is the same across groups (we actually did this too),
+-   We will do the following
+    -   Aggregate Observed vs. Expected to form the test statistic (we'll do a worked example next).
+
+------------------------------------------------------------------------
+
+## Key Idea Behind the Log-Rank Test
+
+\begin{align*}
+&H_0: S_A(t) = S_B(t) = S_C(t) = .... \\
+&H_A: \text{At least one survival function is different.}
+\end{align*}
+
+At each event time we ask:
+
+> Did more deaths occur in one group than expected?
+
+We compare
+
+-   **Observed deaths**
+-   **Expected deaths under the null hypothesis**
+
+------------------------------------------------------------------------
+
+## Risk Set at an Event Time
+
+At event time $t_j$:
+
+|         | Group A  | Group B  | Group C  | Total |
+|---------|----------|----------|----------|-------|
+| At risk | $n_{Aj}$ | $n_{Bj}$ | $n_{Cj}$ | $n_j$ |
+| Deaths  | $d_{Aj}$ | $d_{Bj}$ | $d_{Cj}$ | $d_j$ |
+
+------------------------------------------------------------------------
+
+## Expected Deaths
+
+If survival is the same across groups, then expected deaths at event time $t_j$ in group $g$ is
+
+$$
+E_{gj} =
+d_j
+\frac{n_{gj}}{n_j}.
+$$
+
+-   Allocate deaths **proportionally to the risk set**
+    -   $d_j$ - number of events across all groups at $t_j$.
+    -   $n_{gj}$ - number in risk set of group $g$ at $t_j$
+    -   $n_j$ - number in **total** risk set $g$ at $t_j$
+
+------------------------------------------------------------------------
+
+## Log-Rank Test Statistic w/ $k$ groups
+
+For each group $g$ and time $t_j$:
+
+$$
+O_{gj} - E_{gj}
+$$
+
+Sum across all event times:
+
+$$
+\sum_j (O_{gj} - E_{gj})
+$$
+
+Test statistic:
+
+$$
+\chi^2 =
+\sum_g \frac{(\sum_j (O_{gj} - E_{gj}))^2}{\text{Var}_g}
+$$
+
+Under $H_0$:
+
+$$
+\chi^2 \sim \chi^2_{k-1}
+$$
+
+-   Here: $k = 3$ groups → df = 2
+
+------------------------------------------------------------------------
+
+## Variance in the Log-Rank Test
+
+::: fragment
+At each event time $t_j$, the number of deaths in a group follows a **hypergeometric-like allocation**:
+
+-   Total deaths: $d_j$
+-   Total at risk: $n_j$
+-   Group at risk: $n_{gj}$
+:::
+
+::: fragment
+So the variance of $O_{gj}$ is:
+
+$$
+\mathrm{Var}(O_{gj}) =
+d_j
+\frac{n_{gj}}{n_j}
+\left(1 - \frac{n_{gj}}{n_j}\right)
+\frac{n_j - d_j}{n_j - 1}
+$$
+:::
+
+------------------------------------------------------------------------
+
+## Where Does This Come From?
+
+This is the variance of a **hypergeometric distribution**:
+
+-   We are distributing $d_j$ deaths across groups
+-   Without replacement from the risk set
+
+Interpretation:
+
+-   First term: expected count
+-   Second term: binomial variance component
+-   Third term: finite population correction
+
+------------------------------------------------------------------------
+
+## Total Variance for Group $g$
+
+We sum across event times:
+
+$$
+\mathrm{Var}_g =
+\sum_j \mathrm{Var}(O_{gj})
+$$
+
+Then the log-rank statistic uses:
+
+$$
+\frac{\sum_j (O_{gj} - E_{gj})}
+{\sqrt{\mathrm{Var}_g}}
+$$
+
+------------------------------------------------------------------------
+
+## Key Insight
+
+::: fragment
+-   The log-rank test is essentially:
+
+> A **sum of standardized deviations** between observed and expected deaths
+:::
+
+::: fragment
+-   Same structure as:
+    -   Chi-square tests
+    -   Score tests
+    -   Contingency tables
+:::
+
+------------------------------------------------------------------------
+
+## Illustrative Example (Using Our Dataset)
+
+Use the ordered dataset (by time):
+
+| ID  | Group | Time | Event |
+|:---:|:-----:|:----:|:-----:|
+|  1  |   A   |  1   |   1   |
+|  7  |   B   |  1   |   0   |
+|  2  |   A   |  2   |   0   |
+|  3  |   A   |  3   |   1   |
+|  8  |   B   |  3   |   1   |
+|  9  |   B   |  3   |   1   |
+| 13  |   C   |  4   |   1   |
+| 10  |   B   |  5   |   0   |
+| 14  |   C   |  5   |   0   |
+|  4  |   A   |  6   |   1   |
+| 15  |   C   |  6   |   1   |
+| 16  |   C   |  6   |   1   |
+| 11  |   B   |  7   |   0   |
+|  5  |   A   |  8   |   0   |
+|  6  |   A   |  8   |   0   |
+| 12  |   B   |  8   |   0   |
+| 17  |   C   |  8   |   0   |
+| 18  |   C   |  8   |   0   |
+
+Event times: **1, 3, 4, 6**
+
+------------------------------------------------------------------------
+
+## Step 1 — Risk Sets
+
+| Time | At Risk A | At Risk B | At Risk C | Total |
+|------|-----------|-----------|-----------|-------|
+| 1    | 6         | 6         | 6         | 18    |
+| 3    | 4         | 5         | 6         | 15    |
+| 4    | 3         | 3         | 6         | 12    |
+| 6    | 2         | 2         | 5         | 9     |
+
+------------------------------------------------------------------------
+
+## Step 2 — Observed Deaths
+
+| Time | $d_{Aj}$ | $d_{Bj}$ | $d_{Cj}$ | Total $d_j$ |
+|------|----------|----------|----------|-------------|
+| 1    | 1        | 0        | 0        | 1           |
+| 3    | 1        | 2        | 0        | 3           |
+| 4    | 0        | 0        | 1        | 1           |
+| 6    | 1        | 0        | 2        | 3           |
+
+------------------------------------------------------------------------
+
+## Step 3 — Expected Deaths
+
+Example at time 3:
+
+Total deaths = 3\
+Total at risk = 15
+
+$$
+E_A = 3 \times \frac{4}{15} = 0.8
+$$
+
+$$
+E_B = 3 \times \frac{5}{15} = 1
+$$
+
+$$
+E_C = 3 \times \frac{6}{15} = 1.2
+$$
+
+------------------------------------------------------------------------
+
+## Step 4 — Contributions
+
+Compute $O - E$ for each group at each time.
+
+Example (Group A at time 3):
+
+$$
+1 - 0.8 = 0.2
+$$
+
+Interpretation:
+
+-   Positive → more deaths than expected
+-   Negative → fewer deaths than expected
+
+------------------------------------------------------------------------
+
+## Log-Rank Test in R
+
+```{r}
+
+output = with(data_use,survdiff(Surv(time,event) ~ group))
+
+output$chisq
+output$pvalue
+```
+
+------------------------------------------------------------------------
+
+## Interpretation of the Log-Rank Test
+
+-   The log-rank test compares **observed vs expected deaths**
+-   It is a test of **whether survival curves differ across groups**
+    -   It doesn't tell us *how* the curves differ.
+
+::: fragment
+> If survival is the same, observed ≈ expected at each time
+:::
+
+------------------------------------------------------------------------
+
+## Assumptions of the Log-Rank Test
+
+1.  Independent censoring
+2.  Independent observations
+3.  Hazards proportional over time (best power)
+
+------------------------------------------------------------------------
+
+## Connection to Cox Regression
+
+The log-rank test is equivalent to
+
+> the **score test from the Cox proportional hazards model**.
+
+Next lecture:
+
+-   Cox proportional hazards model
+-   Hazard ratios
+-   Regression interpretation
+
+------------------------------------------------------------------------
+
+## Signed (Directional) Log-Rank Statistic (Two Groups Only)
+
+When there are **two groups** (e.g., Treatment vs Control), we can write a **signed test statistic**:
+
+$$
+Z =
+\frac{\sum_j (O_{1j} - E_{1j})}
+{\sqrt{\sum_j V_{1j}}}
+\overset{\cdot}{\sim} N(0,1)
+\quad \text{under } H_0
+$$
+
+-   Group 1 = treatment (for example)
+-   Group 2 is determined automatically since totals must match
+
+------------------------------------------------------------------------
+
+## Interpretation of the Sign
+
+The numerator:
+
+$$
+\sum_j (O_{1j} - E_{1j})
+$$
+
+tells us **direction of the effect**:
+
+-   **Positive** $Z$:
+    -   More deaths than expected in Group 1\
+    -   → Worse survival in Group 1
+-   **Negative** $Z$:
+    -   Fewer deaths than expected in Group 1\
+    -   → Better survival in Group 1
+
+------------------------------------------------------------------------
+
+## Why This Matters
+
+-   The **signed statistic** lets you say:
+
+> “Which group is doing better?”
+
+-   The $\chi^2$ version only answers:
+
+> “Are the groups different?”
+
+------------------------------------------------------------------------
+
+## Summary
+
+Key ideas:
+
+-   Survival curves can be compared formally
+-   Log-rank compares **observed vs expected events**
+-   Test statistic accumulates differences over time
+-   R provides easy implementation with `survdiff()`

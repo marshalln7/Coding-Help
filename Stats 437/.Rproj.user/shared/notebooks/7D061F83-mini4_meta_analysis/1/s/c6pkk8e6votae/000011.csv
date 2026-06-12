@@ -1,0 +1,6 @@
+"0","tibble("
+"0","  model = c(""Random effects"", ""Meta-regression""),"
+"0","  tau2 = c(re_mod$tau2, meta_mod$tau2),"
+"0","  I2 = c(re_mod$I2, meta_mod$I2),"
+"0","  R2_analog = c(NA, meta_mod$R2)"
+"0",")"

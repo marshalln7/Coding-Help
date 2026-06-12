@@ -1,0 +1,163 @@
+---
+title: "Homework 2"
+subtitle: Simple Linear Regression Model Assumptions
+author: Marshall Nielsen
+format: 
+  html:
+    embed-resources: true 
+---
+
+```{r setup, include=FALSE}
+# load any necessary packages here
+library(tidyverse)
+library(ggfortify)
+```
+
+## Data and Description
+
+One key component of determining appropriate speed limits is the amount of distance that is required to stop at a given speed. For example, in residential neighborhoods, when pedestrians are commonly in the roadways, it is important to be able to stop in a very short distance to ensure pedestrian safety. The speed of vehicles may be useful for determining the distance required to stop at that given speed, which can aid public officials in determining speed limits.
+
+The Stopping Distance data set compares the **distance (column 2)** (in feet) required for a car to stop on a certain rural road against the **speed (column 1)** (MPH) of the car. Download the StoppingDistance.txt file from Canvas, and put it in the same folder as this quarto file.
+
+#### 0. Replace the text "<YOUR NAME HERE>" (above next to "author:") with your full name.
+
+#### 1. Read in the data set, and call the data frame "stop_dat".
+
+```{r}
+stop_dat <- read.table("StoppingDistance.txt", header = TRUE)
+```
+
+#### 2. Create a scatterplot of the data with variables on the appropriate axes (think about which variable makes the most sense to be the response). Make sure the axis labels are descriptive.
+
+```{r, fig.align='center'}
+plot <- ggplot(data = stop_dat, mapping = aes(x = Speed, y = Distance)) +
+  geom_point(color = "blue", size = 1) +
+  labs(title = "The Relationship Between a Car's Speed and Stopping Distance",
+       x = "Car Speed (MPH)",
+       y = "Stopping Distance (Feet)") +
+  theme_minimal()
+
+print(plot)
+```
+
+#### 3. In a full sentence, describe the relationship between Speed and Distance in terms of its linearity, direction, and strength.
+
+It seems roughly linear, but there's definitely a bit of a curve in there. Outside of that, it's definitely a strong, positive relationship.
+
+#### 4. Add the OLS regression line to the scatterplot you created in question 2.
+
+```{r, fig.align='center'}
+plot <- ggplot(data = stop_dat, mapping = aes(x = Speed, y = Distance)) +
+  geom_point(color = "blue", size = 1) +
+  labs(title = "The Relationship Between a Car's Speed and Stopping Distance",
+       x = "Car Speed (MPH)",
+       y = "Stopping Distance (Feet)") +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  theme_minimal()
+
+print(plot)
+```
+
+#### 5. (a) Apply linear regression to the data (no transformations yet). (b) Display a summary of the results from the `lm` function.
+
+```{r}
+linear_model <- lm(formula = Speed ~ Distance, data = stop_dat)
+
+summary(linear_model)
+```
+
+#### 6. Mathematically write out the **fitted** simple linear regression model for this data set using the coefficients you found above. Do not use "x" and "y" in your model - use descriptive variable names.
+
+$$\begin{align}
+    Distance &= 7.938 + 0.279 \times Speed + \epsilon_i \\ 
+    \epsilon_i &\stackrel{iid}{\sim} N(0, 3.51^2) 
+    \end{align} $$
+
+### Questions 7-11 involve using diagnostics to determine if the linear regression assumptions are sufficiently met. For each assumption, (1) perform/display appropriate diagnostics to determine if the assumption is violated, and (2) explain whether or not you think the assumption is violated and why you think that.
+
+#### 7. (L) X vs Y is linear
+
+```{r, fig.align='center'}
+autoplot(linear_model, which = 1)
+```
+
+The residuals versus the fitted plot has a clear trend, and so the linearity assumption is not met.
+
+#### 8. (I) The errors are independent (no diagnostic tools are required in this particular instance. Instead, think about how the data was collected and briefly write your thoughts)
+
+We'd probably need to know a little more about the experiment here. Assuming that they aren't wearing down the tires each time, and that other possible confounding variables were controlled for (road conditions were uniform and the trials were done in a random order) I think that the independence assumption can safely be said is met.
+
+#### 9. (N) The errors are normally distributed.
+
+```{r, fig.align='center'}
+autoplot(linear_model, which = 2)
+```
+
+There seems to be some meaningful deviation from a normal distribution among the errors, especially in the tails.
+
+#### 10. (E) The errors have equal/constant variance across all values of X.
+
+```{r, fig.align='center'}
+autoplot(linear_model, which = 3)
+```
+
+It looks like there's an upward trend here, indicating that the variance is higher towards the higher fitted values and lower towards the lower fitted values.
+
+#### 11. Check if there are any influential points deserving of attention.
+
+```{r, fig.align='center'}
+autoplot(linear_model, which = 4)
+```
+
+The only point with a Cook's distance of more than 0.5 is for observation number 60, which would be worth investigating for a possible error or a candidate for exclusion if we're going to stick with our model the way it is.
+
+#### 12. Based on your synthesis of the diagnostic measures, briefly discuss why this simple linear regression model on the raw data (not transformed) is not appropriate.
+
+It just doesn't seem to be agreeing with the basic assumptions of the model. The data doesn't appear to be linear and I think because of that it's scoring really poorly on all of the other assumptions like normal errors and homoscedasticity because the errors are trending according to the curved nature of the line. It just isn't the best situation for a linear regression.
+
+#### 13. Use variable transformations to create a more appropriate simple linear regression model. The transformation(s) could be of $x$, $y$, or both. This will entail an iterative process of exploring different transformations and evaluating the regression assumptions on the variables' transformed scales, as you did in questions 7 through 11. YOU DO NOT NEED TO INCLUDE YOUR CODE FOR ALL OF YOUR ITERATIONS. Once you have selected a model with transformations, justify the transformation(s) you chose in words. The only code you need to report is the lm() of the model you land on. (You will show code to illustrate that the assumptions are met in the next question.)
+
+```{r, fig.align='center', echo=FALSE}
+
+transformed_stop_dat <- stop_dat
+transformed_stop_dat$Distance <- sqrt(transformed_stop_dat$Distance)
+transformed_linear_model <- lm(formula = Distance ~ Speed, data = transformed_stop_dat)
+
+```
+
+I chose to take the square root of the Distance variable because I noticed that the points seemed to curve upwards in the scatter plot and this would have the effect of reversing that curve. I tried the transformation and created a new scatter plot and that made the data look a lot more linear and like a better candidate for linear regression.
+
+#### 14. Now, check the linear regression assumptions for your transformed model (i.e., on the variables' transformed scales) and verify that they are sufficiently met. Provide a brief discussion about how the previously violated assumptions are now satisfied. (Note that transforming will not change your responses about (I) the errors being independent, so you can skip that assumption here.)
+
+```{r, fig.align='center'}
+autoplot(transformed_linear_model)
+```
+
+Looking at the new assumption checking charts, every one of them looks a lot better than it did before. The residuals vs. fitted values plot looks a lot more evenly distributed, implying linearity, the Q-Q plot for the residuals is better, even if it isn't perfect, and the scale-location plot is a lot more even and shows a much more homoscedastic trend in the residuals, although it still goes up a little bit at the end.
+
+#### 15. Mathematically write out the fitted simple linear regression model for this data set for your transformed model. Do not use "x" and "y" in your model - use descriptive variable names.
+
+$$\begin{align}
+    Distance &= 0.932 + 0.252 \times Speed + \epsilon_i \\ 
+    \epsilon_i &\stackrel{iid}{\sim} N(0, 0.72^2) 
+    \end{align} $$
+
+#### 16. Plot your fitted model from Question 15 on the scatterplot of the original data (on the original scale - not the transformed scale). Do you think this model fits the data better than the original model?
+
+```{r}
+plot <- ggplot(data = stop_dat, mapping = aes(x = Speed, y = Distance)) +
+  geom_point(color = "blue", size = 1) +
+  labs(title = "The Relationship Between a Car's Speed and Stopping Distance",
+       x = "Car Speed (MPH)",
+       y = "Stopping Distance (Feet)") +
+  geom_function(fun = function(x) (0.932 + 0.252 * x) ^ 2, color = "red") +
+  theme_minimal()
+
+print(plot)
+```
+
+This model definitely fits the data better. You can see how the curved trend is better captured by the curved line.
+
+#### 17. Briefly summarize the takeaways from your analysis as if you were addressing a public official involved in determining speed limits (assume they are not a statistician). Do not include any numbers or software output.
+
+Our experiment was a huge success! We were able to find a model for the data that accurately describes the relationship between the speed that a car is going and the distance that it takes to stop. The model tells us that the faster that the car is going, the further it needs in order to stop. However, as the car gets faster, each mile per hour adds more to the stopping distance required than the previous one did. Speed limits should be set conservatively, especially in residential areas.

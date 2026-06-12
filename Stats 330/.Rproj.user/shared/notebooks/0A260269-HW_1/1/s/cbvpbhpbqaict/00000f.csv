@@ -1,0 +1,6 @@
+"0","sigma_squared <- summary(linear_regression)$sigma^2"
+"0","print(sigma_squared)"
+"1","[1]"
+"1"," 6.082312"
+"1","
+"

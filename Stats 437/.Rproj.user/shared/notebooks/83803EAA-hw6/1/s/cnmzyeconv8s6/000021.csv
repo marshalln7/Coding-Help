@@ -1,0 +1,5 @@
+"0","library(ggplot2)"
+"0",""
+"0","ggplot(wine, aes(x = judge, y = as.numeric(rating))) +"
+"0","  stat_summary(fun = mean, geom = ""bar"") +"
+"0","  stat_summary(fun.data = mean_se, geom = ""errorbar"", width = 0.2)"

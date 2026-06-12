@@ -1,0 +1,133 @@
+---
+title: "Homework #2 — Clinical Trials & Epidemiological Risk"
+author: "Marshall Nielsen"
+format: html
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Part 1: Power and Simulation in ALS Trials
+
+## The "Neuro-Dynamics" Story
+
+A fictional biotech company, **Neuro-Dynamics**, has developed a new drug, **ALS-101**, aimed at slowing functional decline in patients with Amyotrophic Lateral Sclerosis (ALS). The primary endpoint is the 12-month change in the **ALS Functional Rating Scale-Revised (ALSFRS-R)**. Scores range from 0 to 48; higher scores indicate higher functional ability.
+
+Based on historical RCT data, researchers expect the placebo group to decline by an average of 12 points ($\mu_1 = -12$) with a standard deviation ($\sigma$) of 8 points. They hope ALS-101 will slow disease decline by about $33\%$, meaning that the average decline would be about 8 points ($\mu_2 = -8$), creating a target effect size ($\delta$) of 4 points. Preliminary (for part A), we'll assume that the treatment and control groups have the same standard deviation.
+
+### A. Analytic Power Calculation
+
+Use the `power.t.test()` function in R to determine the required sample size per group ($n$) to achieve **90% power** with a two-sided **significance level (**$\alpha$) of 0.05. Round up to the nearest integer.
+
+```{r}
+power.t.test(n=NULL, delta=4, sd=8, sig.level = 0.05, power=0.9, type="two.sample", alternative = "two.sided")
+
+```
+
+1.  **Question:** How many participants must Neuro-Dynamics recruit **in total** (both groups) for this study? Recall that $n$ is the sample size for one group.
+
+-   *Answer: About 85 people in each group so 170 total*
+
+### B. Power by Simulation
+
+The lead scientist is concerned that ALSFRS-R decline data is (i) not perfectly normal for both groups and (ii) that the treatment group will have more variability than the control group.
+
+To test robustness of the power, we will simulate data in the following ways:
+
+-   Control group - using a $t$-distribution with 4 degrees of freedom and $sd = 8$.
+-   Treatment group - using a $t$-distribution with 4 degrees of freedom and $sd = 10$.
+
+The $t$-distribution has "heavier tails" than a normal distribution, making extreme declines more likely than a standard normal curve would suggest. One tricky aspect of this is that a standard $t$-distribution does not have variance 1, but rather $\frac{df}{df - 2}$ for degrees of freedom $df > 2$. So, a couple of important notes:
+
+-   To get a variance of 64 (sd = 8), you need `4 * sqrt(2) * rt(1,df = 4)`
+-   To get a variance of 100 (sd = 10), you need `5 * sqrt(2) * rt(1,df = 4)`
+-   To get a mean that isn't zero, you need to add (or subtract) the mean. For example `rt(1,df = 4) + 2` will have mean and variance of 2.
+
+Write a simulation to estimate the power of a two-sample $t$-test under these conditions. Use the $n$ (rounded up) you calculated in Part A.
+
+```{r}
+set.seed(01162026) 
+# Use n_per_group from last task
+
+n_sims <- 10000
+p_values <- numeric(n_sims)
+
+for(i in 1:n_sims){
+  # Simulate Placebo group (Mean decline -12) using rt(,df = 4) w/ var = 64 (sd = 8)
+  group_p <- 4 * sqrt(2) * rt(86, df = 4) - 12
+  
+  # Simulate ALS-101 (Mean decline -8) using rt(,df =4) w/ var = 100 (sd = 10)
+  group_a <- 5 * sqrt(2) * rt(86, df = 4) - 8
+  
+  # Perform t-test and save the p-value
+  p_values[i] <- t.test(group_p, group_a)$p.value
+}
+
+# Calculate power `sim_power` (i.e., proportion of p-values < 0.05)
+sim_power <- p_values <= 0.05
+print(sum(sim_power) / 10000)
+```
+
+1.  **Question:** How does your simulated power compare to the 90% target? Why might a heavy-tailed distribution and heteroscedasticity change the power compared to the standard normal assumption?
+
+-   *Answer: It looks like the power is actually lower here, which makes conceptual sense. A heavy tailed distribution like a t-distribution and a higher variance in the experimental group will make for a sampling distribution that has higher variance as well. If the sampling distribution of the experimental group has greater variance, we will see more instances where the average value of the experimental group ends up on the opposite side of the threshold of significance meaning that we fail to reject our null.*
+
+# Part 2: Observational Study Concepts
+
+### A. Conceptual Short Response
+
+1.  **The "Fuzzy" Boundary:** Based on the RCT slide deck, explain why the phases of drug development (I-IV) are often described as "fuzzy" rather than rigid, separate boxes.
+    -   *Answer: The phases of drug development are often fuzzy because you're trying to get them done as fast as possible in order to get to market. In order to do this, sometimes you'll do phase I and phase II at the same time, or a phase II and III without a clear boundary. The designation of the phases is really more of a discription of the types of information that you're looking to find which can often be blurred together as the study branches off into multiple arms and certain trials are used for multiple purposes.*
+2.  **The Healthy User Bias:** In a cohort study looking at physical activity and Parkinson's Disease risk, researchers found that people who exercise more have a lower risk of Parkinson's Disease. However, if people with early, undiagnosed muscle weakness (pre-clinical Parkinson's Disease) stop exercising before the study begins, what kind of bias may be introduced?.
+    -   *Answer: This can introduce a selection bias because when potential subjects who are already showing signs of muscle weakness sign up for the study, they will be placed in the "doesn't exercise" group, not because of their habits before contracting Parkinson's Disease, but because they already have it, making it look like people who don't exercise get Parkinson's Disease whether or not that is actually true.*
+
+### B. Choosing a Design
+
+Identify the most appropriate observational study design for the following (Cohort, Case-Control, or Cross-Sectional):
+
+1.  You want to investigate whether a specific rare form of pediatric leukemia is linked to living near high-voltage power lines. Because the disease is so rare, you start by identifying children who already have the leukemia and then look back at their history of residence.
+    -   *Design: Case-Control*
+2.  You want to follow a group of 5,000 workers who were exposed to a specific industrial chemical (and a group of 5,000 unexposed workers) over the next 20 years to see who develops respiratory illness.
+    -   *Design: Cohort*
+3.  You want to conduct a one-time survey of university students in October to determine how many currently have a valid flu vaccination and their current self-reported stress levels.
+    -   *Design: Cross-sectional*
+
+# Part 3: Computing Risk and Association
+
+### A. Cohort Study: Smoking and Mortality
+
+This example is based on the **British Doctors Study** (Doll & Hill, 1954), a landmark prospective cohort study. Researchers followed thousands of doctors to see if smoking was associated with death from lung cancer. (Data are simplified for calculation).
+
+| Exposure        | Lung Cancer Death | No Lung Cancer Death | Total  |
+|:----------------|:-----------------:|:--------------------:|:------:|
+| **Smokers**     |        80         |        19,920        | 20,000 |
+| **Non-Smokers** |         5         |        19,995        | 20,000 |
+
+1.  **Calculate the Risk Difference (RD):**
+    -   *Work/Result:*
+        -   *80 / 20,000 = 0.004*
+        -   5 / 20,000 = 0.00025
+        -   RD = 0.004 - 0.00025 = 0.00375 or 0.375%
+    -   *Interpretation: The overall chance of dying of lung cancer is 0.375% higher for those that smoke versus those that don't smoke.*
+2.  **Calculate the Risk Ratio (RR):**
+    -   *Work/Result:*
+        -   0.004 / 0.00025 = 16
+    -   *Interpretation: If you smoke, your chances of dying of lung cancer are 16 times higher than those that don't smoke.*
+
+### B. Case-Control Study: Asbestos and Lung Cancer
+
+This example is based on classic occupational health studies investigating the link between **asbestos exposure** (a toxic fiber used in construction) and **lung cancer**. Researchers recruited 150 patients with lung cancer (cases) and 300 individuals without lung cancer (controls).
+
+|                          | Asbestos Exposure | No Asbestos Exposure |
+|:-------------------------|:-----------------:|:--------------------:|
+| **Cases (Lung Cancer)**  |        45         |         105          |
+| **Controls (No Cancer)** |        30         |         270          |
+
+1.  **Calculate the Odds Ratio (OR):**
+    -   *Work/Result:*
+        -   (45 \* 270) / (30 \* 105) = 3.86
+2.  **Interpretation:** Interpret the OR in terms of the "odds of exposure" for cases compared to controls.
+    -   *Answer: The odds of exposure is 3.86 times higher for those who were exposed to asbestos versus the controls.*
+3.  **Conceptual Check:** Based on the "Estimating Risk" slides, why is it impossible to calculate a "Risk Ratio" (RR) using the data from a Case-Control table like this?
+    -   *Answer: You can't calculate a risk ratio with this information because a risk ratio requires us to know the attack rates for the exposed and the non exposed. In order to get attack rates, you have to know the ratio of the exposed cases to the number exposed as well as the non exposed cases to the number of non exposed, which information isn't provided in a case-control study.*

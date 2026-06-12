@@ -1,0 +1,7 @@
+"0","regplot("
+"0","  meta_mod,"
+"0","  xlab = ""DBP reduction (mm Hg)"","
+"0","  ylab = ""log(OR)"","
+"0","  pch = 21,"
+"0","  bg = ""steelblue"""
+"0",")"

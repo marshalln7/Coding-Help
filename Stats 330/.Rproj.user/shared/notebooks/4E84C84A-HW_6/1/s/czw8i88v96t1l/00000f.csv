@@ -1,0 +1,3 @@
+"0","life <- read.table(""LifeExpectancy.txt"", header = TRUE)"
+"0","life$Row <- NULL"
+"0","life$Group <- as.factor(life$Group)"

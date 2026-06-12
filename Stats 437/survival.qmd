@@ -1,0 +1,281 @@
+---
+title: "Mini Project 3: Recurrence-Free Breast Cancer Survival"
+author: "Marshall Nielsen"
+format: pdf
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(survival)
+library(survminer)
+library(TH.data)
+library(broom)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Mini Project — Overview
+
+In this mini-project, you will analyze recurrence-free survival data from the German Breast Cancer Study Group 2 **GBSG2 study** using Kaplan–Meier curves and Cox proportional hazards models.
+
+Your goal is to:
+
+-   Explore the data
+-   Build and compare Cox models
+-   Investigate an interaction
+-   Interpret model results
+-   Justify your final model
+
+Submit a single `.qmd` file and rendered PDF including:
+
+-   Code
+-   Output
+-   Written answers (concise but clear)
+
+------------------------------------------------------------------------
+
+# Data Description
+
+```{r}
+data("GBSG2", package = "TH.data")
+summary(GBSG2)
+
+GBSG2 = GBSG2 %>% 
+  mutate(tgrade = factor(tgrade))
+```
+
+Key variables:
+
+-   `time`: recurrence-free survival time (days)
+-   `cens`: event indicator (1 = recurrence, 0 = censored)
+-   `horTh`: hormonal therapy (yes/no)
+-   `age`: age in years
+-   `menostat`: menopausal status
+-   `tsize`: tumor size
+-   `tgrade`: tumor grade (1, 2, or 3)
+-   `pnodes`: number of positive nodes
+-   `progrec`, `estrec`: hormone receptor levels
+
+------------------------------------------------------------------------
+
+# Part 1 — Exploratory Analysis
+
+## 1. Overall Kaplan–Meier Curve
+
+1.  Plot Kaplan–Meier curves.
+
+```{r}
+library(survival)
+fit <- survfit(Surv(time, cens) ~ 1, data = GBSG2)
+
+# ----------------------------
+# Plot KM curves
+# ----------------------------
+out <- ggsurvplot(
+    fit,
+    data = GBSG2,
+    risk.table = TRUE,
+    conf.int = FALSE,
+    xlim = c(0, 2660),
+    linetype = "strata"
+  )
+
+out$plot
+```
+
+2.  The median survival time is the time at which the survival probability is 50%. Based on the KM-Curve, what is the approximate median recurrence-free survival time in the data?
+
+The median occurs at around 1750 days.
+
+------------------------------------------------------------------------
+
+## 2. Kaplan–Meier Curve by Group
+
+1.  Plot Kaplan–Meier curves for:
+
+-   `horTh`
+
+```{r}
+#Update the generic code below:
+
+fit = survfit(Surv(time, cens) ~ horTh, data = GBSG2)
+
+out = suppressWarnings(ggsurvplot(fit,
+           data = GBSG2,
+           conf.int = FALSE))
+
+out$plot
+```
+
+2.  Briefly describe differences in survival across groups.
+
+There isn't a super pronounced difference in the survival between the groups at first, but as time goes on it becomes clear that the patients that received hormone therapy consistently went longer before breast cancer recurrence.
+
+------------------------------------------------------------------------
+
+## 3. Covariate Exploration
+
+Explore relationships between predictors and survival.
+
+1.  Compare distributions of two of the following variables between those who survived and those who didn't (`cens = 0` vs. `cens = 1`):
+    -   `age`
+    -   `tsize`
+    -   `pnodes`
+    -   `estrec`
+    -   `progrec`
+
+```{r}
+survived_ds <- GBSG2 |>
+  filter(cens == 0)
+
+returned_ds <- GBSG2 |>
+  filter(cens == 1)
+
+hist(survived_ds$age)
+hist(returned_ds$age)
+```
+
+```{r}
+hist(survived_ds$tsize)
+hist(returned_ds$tsize)
+```
+
+2.  What patterns do you notice?
+
+I notice that the distribution of ages tends to lead older among those for whom the breast cancer returned, while the distribution of the sizes of the tumor doesn't seem to be very different between the group that survived and the group where the breast cancer returned.
+
+**Answer Here**
+
+3.  Reflect on how censoring might impact these simple distributional comparisons. What might we miss by only looking at these summaries?
+
+-   hint: Think about whether a 'survivor' (cens = 0) has necessarily lived longer than someone with a recurrence (cens = 1).
+
+There's a lot that we might miss by assuming that censored (cens = 0) indicates survival, because there are many reasons why someone might drop out of the study besides the breast cancer going away. For instance, they might have switched to a different doctor, moved, simply got too busy to respond, or they might've gone looking for another treatment. Any one of these could mess with our interpretation if we're treating cens = 0 as a survival.
+
+------------------------------------------------------------------------
+
+# Part 2 — Cox Model Building
+
+## 4. Baseline Cox Model
+
+Fit a Cox model using:
+
+-   `age`
+-   `pnodes`
+-   `horTh`
+
+```{r}
+fit1 <- coxph(Surv(time, cens) ~ age + pnodes + horTh, data = GBSG2)
+summary(fit1)
+```
+
+1.  Report exponentiated coefficients (hazard ratios).
+
+```{r}
+# You can use the following if you want
+tidy(fit1, exponentiate = TRUE)
+```
+
+2.  Interpret two exponentiated coefficients in context -- one for a continuous variable and one for a categorical variable.
+
+The coefficient for pnodes tells us that every extra positive node that someone has means that their risk at all points in time goes up by 5.94%, holding all else constant.
+
+The coefficient for horThyes tells us that those that get hormone therapy have 70.26% of the risk at all points in time that people that don't get hormone therapy have, holding all else constant.
+
+------------------------------------------------------------------------
+
+## 5. Extended Model
+
+Fit a more complex model by adding additional predictors (e.g., `tgrade`, `menostat`, `tsize`, or receptor variables).
+
+```{r}
+fit2 <- coxph(Surv(time, cens) ~ age + pnodes + horTh + tgrade + menostat + tsize, data = GBSG2)
+summary(fit2)
+```
+
+Compare this model to the baseline model using:
+
+-   AIC or likelihood ratio test
+
+```{r}
+AIC(fit1, fit2)
+```
+
+-   Which model is better? Why?
+
+It looks like the second model has a slightly lower AIC, but it's not by a lot so it might be worth taking the first one if you want a simpler model.
+
+------------------------------------------------------------------------
+
+## 6. Interaction
+
+Add **one interaction term** of your choice.
+
+Examples: - `horTh * menostat` - `age * pnodes`
+
+```{r}
+fit3 <- coxph(Surv(time, cens) ~ age + pnodes + horTh + tgrade + menostat + tsize + age * horTh, data = GBSG2)
+summary(fit3)
+```
+
+1.  Without using the results, explain what type of flexibility this interaction adds to the model.
+
+Adding this interaction term gives our Cox model a lot of flexibility because without it the model would struggle to cope with factors that increase the risk ratio but do so inconsistently across groups. This one specifically enables the model to cope with the fact that hormone therapy might be slightly more helpful for older people.
+
+2.  Does the interaction appear important? How do you assess that?
+
+This interaction doesn't appear important, which we can assess using the fact that the confidence interval for the exponentiated coefficient straddles zero and has a p value that fails to reject the null.
+
+------------------------------------------------------------------------
+
+# Part 3 — Model Diagnostics
+
+## 7. Proportional Hazards Assumption
+
+Test the proportional hazards assumption:
+
+```{r}
+zph3 <- cox.zph(fit3)
+zph3
+```
+
+1.  Report results of `cox.zph()`
+
+The test appears to indicate that the null hypothesis that the proportional hazards assumption is met can be rejected for age, tgrade, and menostat.
+
+2.  Comment on whether the PH assumption appears reasonable
+
+I don't think that the proportional hazards assumption is completely reasonable in this situation because I can think of a lot of times when one of our factors would increase hazards non-proportionally across ages or grades of breast cancer. For instance, the same size or count of tumors might be more or less hazardous depending on how old someone is and what grade the tumors are considered to be.
+
+------------------------------------------------------------------------
+
+# Part 4 — Final Model and Interpretation
+
+## 8. Final Model Selection
+
+Choose a final model.
+
+Justify your choice using:
+
+-   Model comparison
+-   Interpretability
+-   Diagnostics
+
+Please discuss how you chose to strike a balance between model simplicity, assumptions, and comparison.
+
+I'm going to go with model 1 because it doesn't do that much worse than model 2, and leaves out two of the variables that violate the proportional hazards assumptions. Plus it's a lot simpler and easy to interpret without any interactions.
+
+------------------------------------------------------------------------
+
+## 9. Summary
+
+Write a short summary (3–5 sentences):
+
+-   What variables are most important?
+-   What did you learn about survival in this dataset?
+-   Any limitations or concerns?
+
+The most important variables consistently seem to be whether a person has gotten hormone therapy, the number of positive nodes, and the grade of those tumors. I learned that survival isn't always straightforward but it is possible to establish relationships between variables and proportional risk factors over time. The only concern that I still have is how to effectively handle the age variable since it seems important to but might only be important as far as it interacts with other variables. Further investigation into these interactions could be profitable.

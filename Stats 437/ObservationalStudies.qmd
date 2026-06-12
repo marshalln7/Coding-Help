@@ -1,0 +1,594 @@
+---
+title: "Observational Study Designs"
+subtitle: "Cohort, Case–Control, and Other Designs"
+author: "Philip White"
+format:
+  revealjs:
+    slide-number: true
+    incremental: true
+    theme: serif
+    css: slides.css
+execute:
+  echo: true
+  warning: false
+  message: false
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+## Learning goals
+
+By the end of this lecture, you should be able to:
+
+-   Distinguish **cohort** and **case–control** study designs
+-   Identify strengths and weaknesses of major observational designs
+-   Understand **nested**, **case–crossover**, **ecologic**, and
+    **cross-sectional** studies
+-   Recognize common biases associated with each design
+-   Choose an appropriate design for a given scientific question
+
+------------------------------------------------------------------------
+
+## Big picture: observational studies
+
+-   Used when randomization is impossible, unethical, or impractical
+-   Central goal: **identify associations** between exposures and
+    outcomes
+-   Causal interpretation requires care
+
+> Design choices determine what can—and cannot—be concluded.
+
+------------------------------------------------------------------------
+
+## Cohort studies: basic idea
+
+-   Begin with **exposed** and **nonexposed** groups
+-   Follow both groups forward in time
+-   Compare **incidence** of disease (or death)
+
+Key defining feature:
+
+> Exposure is defined **before** outcome occurs.
+
+------------------------------------------------------------------------
+
+## Cohort studies: what questions do they answer?
+
+Cohort studies are well suited for questions like:
+
+-   Does exposure **increase the risk** of disease?
+-   How large is the **absolute risk difference**?
+-   What is the **temporal sequence** of events?
+
+They naturally produce: - Incidence rates - Risk ratios - Risk
+differences
+
+------------------------------------------------------------------------
+
+## Cohort study structure (2×2 table)
+
+|             | Disease | No disease | Total |
+|-------------|---------|------------|-------|
+| Exposed     | a       | b          | a+b   |
+| Not exposed | c       | d          | c+d   |
+
+Incidence (exposed): $I_E = \frac{a}{a+b}$
+
+Incidence (unexposed): $I_U = \frac{c}{c+d}$
+
+------------------------------------------------------------------------
+
+## Measures from cohort studies
+
+From a cohort study we can estimate:
+
+-   **Risk ratio (relative risk)**
+
+$$RR = \frac{I_E}{I_U}$$
+
+-   **Risk difference**
+
+$$RD = I_E - I_U$$
+
+-   **Incidence rate ratios** (with person-time)
+
+These quantities have direct causal interpretations *if assumptions
+hold*.
+
+------------------------------------------------------------------------
+
+## Strengths of cohort studies
+
+-   Directly estimate **incidence**
+-   Establish **temporality** (exposure precedes outcome)
+-   Can study **multiple outcomes** from one exposure
+-   Often easier to interpret than odds ratios
+
+------------------------------------------------------------------------
+
+## Weaknesses of cohort studies
+
+-   Often **expensive** and time-consuming
+-   Inefficient for **rare diseases**
+-   Several sources of bias.
+
+------------------------------------------------------------------------
+
+## Class Activity: The "HRT" Mystery
+
+**The Scenario:** Does Hormone Replacement Therapy (HRT) prevent heart
+attacks?
+
+**The Study (Nurses' Health Study):**
+
+-   **Population:** 121,700 female registered nurses.
+-   **Exposure:** Self-reported use of HRT (Current vs. Never).
+-   **Follow-up:** 10 years of questionnaires.
+-   **Outcome:** Coronary Heart Disease (CHD).
+
+------------------------------------------------------------------------
+
+## Step 1: Calculate the "Discovery"
+
+Using data simplified from the 1991 Stampfer study (the data are a
+little more complicated):
+
+|                 | CHD (Yes) | CHD (No) | Total  |
+|-----------------|-----------|----------|--------|
+| **Current HRT** | 100       | 29,900   | 30,000 |
+| **Never HRT**   | 300       | 49,700   | 50,000 |
+
+**Task (2 Minutes):**
+
+1.  Calculate the Incidence ($I_E$ and $I_U$)
+2.  Calculate the Risk Ratio ($RR$)
+
+------------------------------------------------------------------------
+
+## Step 2: Discussion - Selection Bias
+
+**The "Healthy User" Effect**
+
+Women who chose to take HRT in the 80s were generally higher income,
+exercised more, and smoked less than those who didn't.
+
+*Discussion Queue (3 minutes)*
+
+> -   Does the $RR$ you calculated represent the **drug's effect** or
+>     the **nurses' lifestyle**?
+> -   If we ignored these "hidden" factors, would our results be an
+>     **overestimate** or **underestimate** of the drug's benefit?
+
+------------------------------------------------------------------------
+
+## Step 3: Discussion - Attrition Bias
+
+**Loss to Follow-up**
+
+Imagine if women who started feeling "heart flutters" (early CHD
+symptoms) became too fatigued to fill out their 20-page biennial
+surveys.
+
+-   Discussion Queue (2 Minutes):\*
+
+> -   If sick women drop out of the **exposed** group more often, how
+>     does that change the numerator ($a$) in our $2 \times 2$ table?
+> -   What happens to the final $RR$ calculation?
+
+------------------------------------------------------------------------
+
+## The Big Reveal: Cohort vs. RCT
+
+In 2002, the **Women's Health Initiative (WHI)** randomized women to HRT
+or Placebo.
+
+| Study Type          | Finding on HRT & Heart Disease     |
+|---------------------|------------------------------------|
+| **Cohort (NHS)**    | **Protective** ($RR \approx 0.56$) |
+| **RCT (WHI Trial)** | **Harmful** ($RR \approx 1.29$)    |
+
+**Key Lesson:** The Cohort study was biased by "Healthy Users." It
+measured **wealth and health awareness**, not just a pill.
+
+------------------------------------------------------------------------
+
+## Further Reading
+
+-   **Original Cohort Study:** [Stampfer et al.
+    (1991)](https://pubmed.ncbi.nlm.nih.gov/1870648/)
+-   **The RCT "Shock":** [Rossouw et al.
+    (2002)](https://jamanetwork.com/journals/jama/fullarticle/195120)
+-   **Reconciling the Two:** [Hernán et al.
+    (2008)](https://pmc.ncbi.nlm.nih.gov/articles/PMC3731075/)
+
+------------------------------------------------------------------------
+
+## Selection bias (Who gets into the study?)
+
+-   Healthy Worker Effect (Occupational Studies)
+    -   Workers (exposed group) are generally healthier than the general
+        population, skewing results if compared to the public, as seen
+        in occupational studies.
+-   Healthy User/Participant Effect (Lifestyle/Diet Studies)
+    -   People interested in healthy lifestyles are more likely to join,
+        leading to lower mortality and healthier behaviors in the study
+        group than in the real world.
+-   Loss to Follow-Up (Attrition Bias)
+    -   If sicker people (who might have the outcome) drop out more
+        often from the exposed group than the unexposed, it makes the
+        exposure look safer.
+    -   Example: In a study on hypertension and kidney disease, people
+        without kidney issues might quit the study, leaving more sick
+        people in the hypertensive group, inflating risk.
+
+## Information Bias (How data is collected/measured)
+
+-   Differential Misclassification: Exposure status affects how outcomes
+    are measured.
+    -   Example: Women on oral contraceptives (exposed) get more breast
+        cancer screenings, leading to earlier detection than in
+        non-users, creating a false link.
+-   Interviewer/Observer Bias: Interviewers, knowing exposure status,
+    might probe more or interpret subjective answers differently.
+
+------------------------------------------------------------------------
+
+## Other sources of bias
+
+-   Confounding due to lack of randomization
+    -   Self-selection can lead to substantial differences between the
+        exposed and not exposed groups.
+-   Lead-Time Bias: Early detection makes survival look longer, even if
+    the actual disease progression isn't changed.
+-   Publication Bias: Studies with statistically significant findings
+    are more likely to get published than those without statistically
+    significant results. This can skew the overall evidence.
+
+------------------------------------------------------------------------
+
+## Prospective vs retrospective cohorts
+
+**Prospective cohort**: - Identify population now - Measure exposure
+going forward - Follow for outcomes
+
+**Retrospective cohort**: - Use historical records - Exposure and
+outcome already occurred
+
+Key point:
+
+> The logic is identical; only **calendar time** differs.
+
+------------------------------------------------------------------------
+
+## Case–control studies: basic idea
+
+-   Begin with **cases** (people with disease) and find **controls**
+    (people without disease).
+-   Look backward to assess **past exposure**
+
+Key feature:
+
+> Selection is based on outcome status.
+
+------------------------------------------------------------------------
+
+## Case–control study layout
+
+|          | Exposed | Not exposed |
+|----------|---------|-------------|
+| Cases    | a       | c           |
+| Controls | b       | d           |
+
+Compare: $$\frac{a}{a+c} \quad \text{vs} \quad \frac{b}{b+d}$$
+
+------------------------------------------------------------------------
+
+## Strengths of case–control studies
+
+-   Efficient for **rare diseases**
+-   Faster and cheaper than cohorts
+-   Can examine **multiple exposures**
+
+## Limitations of case–control studies
+
+-   Cannot estimate incidence directly
+-   Sensitive to similar **selection bias** we saw with cohort designs
+-   Recall bias may distort exposure histories
+-   
+
+------------------------------------------------------------------------
+
+## Class Activity: The "Passive Surveillance" Trap
+
+**The Scenario:** Researchers want to see if the HPV4 vaccine is
+associated with autoimmune diseases (e.g., Lupus, Rheumatoid Arthritis,
+POTS).
+
+**The Study (Geier and Geier 2017):**
+
+-   **Database:** VAERS (Vaccine Adverse Event Reporting System).
+-   **Design:** Case-Control.
+-   **Cases:** Female reports in VAERS with an autoimmune diagnosis.
+-   **Controls:** Female reports in VAERS *without* an autoimmune
+    diagnosis.
+-   **Exposure:** Receipt of the HPV4 vaccine. **The Result:** The study
+    found highly significant Odds Ratios for various auto-immune
+    diseases (e.g., Lupus $OR = 7.6$).
+
+------------------------------------------------------------------------
+
+## Step 1: Selection Bias & "The At-Risk" Population
+
+**The Setup:** The study included girls aged 6–39. However, the HPV4
+vaccine is not approved for children under 9.
+
+**🗣️ Discussion Queue (4 Minutes):**
+
+> -   **One Issue:** Autoimmune diseases are much rarer in 6-year-olds
+>     than in 20-year-olds.
+> -   Since 6-8 year olds *cannot* be vaccinated, which group (Cases or
+>     Controls) are they end up in?
+> -   Can this age group be exposed?
+> -   **The Bias:** If your "unvaccinated" control group is full of very
+>     young children who naturally have zero risk of the disease, how
+>     does that "tilt" the Odds Ratio?
+
+------------------------------------------------------------------------
+
+## Step 2: Discussion - What makes a "Control"?
+
+**The Setup:** VAERS is a **passive** database; it only contains people
+who had an adverse event and chose to report it. Moreover, it does not
+require clinical verification of the event.
+
+-   It does not represent the general healthy population.
+
+> **🗣️ Discussion Queue (4 Minutes):**
+
+> -   A fundamental rule: Controls must represent the population that
+>     *would have become cases* if they developed the disease.
+> -   If the controls are people reporting other injuries (like a sore
+>     arm from a flu shot), are they truly comparable to a patient with
+>     a complex autoimmune disease?
+> -   **Methodology vs. Findings:** Experts criticize this study because
+>     VAERS is meant for "Hypothesis Generation," not "Causal Testing."
+>     Why can't we calculate a true denominator here?
+
+------------------------------------------------------------------------
+
+## Methodology Matters
+
+When high-quality studies used **Active Surveillance** (tracking
+everyone, not just those who report) and **Matched Controls** (comparing
+15-year-olds to 15-year-olds), the results changed:
+
+| Study Type | Database Type | Result (Autoimmune Risk) |
+|----|----|----|
+| **Geier and Geier 2017** | Passive (VAERS) | **Significant Link** |
+| **Arnheim-Dahlstrom** | Active (Hospital Records) | **No Association** |
+
+**Why the difference?**
+
+1.  **Age-Matching:** Larger studies adjusted for age, education, and
+    socioeconomic status.
+2.  **Medical Confirmation:** Using hospital records ensures the
+    "outcome" is a real diagnosis, not just a self-reported symptom.
+
+------------------------------------------------------------------------
+
+## References for this Activity
+
+-   **Geier DA, Geier MR.** Quadrivalent human papillomavirus vaccine
+    and autoimmune adverse events: a case-control assessment of the
+    vaccine adverse event reporting system (VAERS) database. *Immunol
+    Res.* 2017;65(1):46-54.
+-   **Arnheim-Dahlström L, et al.** Autoimmune, neurological, and venous
+    thromboembolic adverse events after immunisation of adolescent girls
+    with quadrivalent human papillomavirus vaccine in Denmark and
+    Sweden: cohort study. *BMJ.* 2013; 347:f5906.
+-   **Legal Commentary:** Discussion on the limitations of VAERS for
+    causal inference and the specific "at-risk" population age bias (6-8
+    year olds).
+    -   https://ecf.cofc.uscourts.gov/cgi-bin/show_public_doc?2018vv0056-166-0
+
+------------------------------------------------------------------------
+
+## Nested designs (within cohorts)
+
+-   Combine strengths of cohort and case–control designs
+-   Begin with a defined cohort
+-   Perform a case–control study **within** it
+
+Two main types:
+
+-   Nested case–control
+-   Case–cohort
+
+------------------------------------------------------------------------
+
+## Nested case–control studies
+
+-   Controls selected from those **at risk at the time each case
+    occurs**
+-   Controls matched on calendar time and follow-up
+
+Advantages:
+
+-   Reduced cost
+-   Minimizes recall bias
+-   Higher comparability
+
+------------------------------------------------------------------------
+
+## Case–cohort studies
+
+-   Controls selected as a **random subcohort** at baseline
+-   Same controls can be reused for multiple outcomes
+
+Key difference:
+
+> Controls are *not* time-matched to cases.
+
+------------------------------------------------------------------------
+
+## Case–crossover design
+
+-   Each subject serves as **their own control**
+-   Compare exposure during a short **hazard period** vs a **control
+    period**
+
+Used for:
+
+-   Acute outcomes
+-   Transient exposures
+
+------------------------------------------------------------------------
+
+## Case–crossover example
+
+-   Myocardial infarction
+-   Air pollution spikes
+
+Question:
+
+> Was exposure higher immediately before the event than during a control
+> time?
+
+------------------------------------------------------------------------
+
+## Strengths and limits of case–crossover
+
+Strengths:
+
+-   Controls for time-invariant confounders
+-   Efficient for short-term effects
+
+Limitations:
+
+-   Sensitive to time trends
+-   Recall bias may still occur
+
+------------------------------------------------------------------------
+
+## Ecologic studies
+
+-   Unit of analysis = **groups**, not individuals
+
+-   Compare average exposure and outcome across regions
+
+-   Example:
+
+    -   Country-level fat intake vs breast cancer incidence
+
+------------------------------------------------------------------------
+
+## Ecologic fallacy
+
+> Associations at the group level may not hold at the individual level.
+
+Key limitation:
+
+-   Individual exposure–outcome links are unknown.
+-   Group vs. Individual
+    -   The fallacy confuses characteristics of a group (average income,
+        literacy rates, crime rates) with characteristics of individuals
+        within that group.
+-   Levels of Analysis: Data collected at a macro level (states,
+    countries) is incorrectly applied to a micro level (people).
+    -   Example: If states with more immigrants have higher literacy
+        rates, it's an ecological fallacy to assume immigrants are more
+        literate; the overall state literacy might be high due to the
+        native-born population, even if immigrants within that state
+        have lower literacy.
+-   Simpson's Paradox: A related concept where a trend seen in different
+    groups disappears or reverses when the groups are combined,
+    highlighting how aggregate data can be misleading.
+
+------------------------------------------------------------------------
+
+## When ecologic studies are useful
+
+-   Hypothesis generation
+
+-   Studying **contextual effects** (e.g., neighborhoods)
+
+-   Policy-level questions
+
+-   *But* they cannot establish causality alone.
+
+------------------------------------------------------------------------
+
+## Cross-sectional studies
+
+-   Exposure and outcome measured **simultaneously**
+-   A snapshot of a population
+
+Also called:
+
+-   Prevalence studies
+
+------------------------------------------------------------------------
+
+## Cross-sectional layout
+
+|             | Disease | No Disease |
+|-------------|---------|------------|
+| Exposed     | a       | b          |
+| Not exposed | c       | d          |
+
+Can compare: - Disease prevalence by exposure - Exposure prevalence by
+disease
+
+------------------------------------------------------------------------
+
+## Limitations of cross-sectional studies
+
+-   Cannot establish temporality
+-   Uses **prevalent**, not incident, cases
+-   May reflect survival rather than risk
+
+------------------------------------------------------------------------
+
+## Choosing a design
+
+Ask:
+
+-   Is the outcome rare?
+-   Is exposure rare?
+-   Is timing critical?
+-   Are data already available?
+
+> -   Good design follows the scientific question.
+
+------------------------------------------------------------------------
+
+## Which design would you choose to study:
+
+-   Long-term effects of air pollution?
+-   A rare cancer?
+-   Acute triggers of heart attacks?
+
+------------------------------------------------------------------------
+
+## Summary: Choosing Your Study Design
+
+| Design | Starting Point | Direction of Inquiry | Best For... | Major "Red Flag" |
+|:---|:---|:---|:---|:---|
+| **Cohort** | Exposure | Forward to Outcome | Rare exposures; Incidence | **Selection Bias** (Healthy User Effect) |
+| **Case-Control** | Outcome | Backward to Exposure | Rare diseases; Fast/Cheap | **Selection Bias** (Control selection) |
+| **Case-Crossover** | Outcome | "Hazard" vs "Control" time | Acute triggers (triggers) | **Information Bias** (Recall) |
+| **Cross-Sectional** | Snapshot | Simultaneous | Prevalence; Surveying | **Temporality** (Chicken vs Egg) |
+| **Ecologic** | Populations | Group Comparisons | Policy; Environment | **Ecologic Fallacy** |
+
+------------------------------------------------------------------------
+
+## Wrap-up
+
+-   Observational designs trade control for feasibility
+
+-   Each design answers *different questions*
+
+-   Understanding limitations is essential for causal reasoning
+
+-   Next: Estimating risk

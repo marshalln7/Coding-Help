@@ -1,0 +1,358 @@
+---
+title: "Mini-Project #2: Modeling Switching Behavior (Logistic Regression)"
+subtitle: "Stat 437 — Nonlinearity and Model Justification"
+author: "Marshall Nielsen"
+format:
+  pdf:
+    toc: false
+execute:
+  echo: true
+  warning: false
+  message: false
+  fig-height: 4
+  fig-width: 6
+---
+
+# 1. Background and Data
+
+In many developing countries, people obtain drinking water from household wells. Some wells are contaminated with arsenic, which poses serious health risks. Households were informed whether their well was unsafe and encouraged to switch to a nearby safe well. Several years later, researchers returned to measure whether households had switched.
+
+Your task is to understand what predicts switching behavior. You are making modeling decisions and defending them.
+
+The dataset is provided in `wells.txt`.
+
+Variables:
+
+-   `switch` — 1 if household switched to a safe well, 0 otherwise
+-   `arsenic` — arsenic concentration in household well
+-   `dist` — distance (meters) to nearest safe well
+-   `educ` — years of education of household head
+-   `assoc` — 1 if household participates in community organizations
+
+Load the data:
+
+```{r}
+library(tidyverse)
+library(splines)
+
+wells <- read.table("wells.txt", header = TRUE)
+str(wells)
+summary(wells)
+```
+
+------------------------------------------------------------------------
+
+# 2. Exploratory Data Analysis
+
+## Overall switching rate
+
+Compute the overall proportion of households that switched.
+
+```{r}
+mean(wells$switch)
+```
+
+Interpret this number in context.
+
+*57.51% of the households in this dataset switched to a safer well.*
+
+------------------------------------------------------------------------
+
+## Continuous Predictors
+
+For each continuous predictor (`arsenic`, `dist`, `educ`):
+
+-   Create a plot of switching probability vs the predictor.
+-   You may use:
+    -   Binning
+    -   `geom_smooth(method="glm", family="binomial")`
+    -   Or both
+
+Example template:
+
+```{r}
+
+ggplot(wells, aes(x = arsenic, y = switch)) +
+  geom_smooth(method = "glm",
+              method.args = list(family = "binomial"),
+              se = TRUE) +
+  labs(title = "Switching Probability vs Arsenic")
+
+ggplot(wells, aes(x = dist, y = switch)) +
+  geom_smooth(method = "glm",
+              method.args = list(family = "binomial"),
+              se = TRUE) +
+  labs(title = "Switching Probability vs Distance")
+
+ggplot(wells, aes(x = educ, y = switch)) +
+  geom_smooth(method = "glm",
+              method.args = list(family = "binomial"),
+              se = TRUE) +
+  labs(title = "Switching Probability vs Education")
+```
+
+### Questions
+
+1.  Does it appear linear on the logit scale?
+
+Arsenic levels seem to be associated with switching behavior linearly on a logorithmic scale, while distance and education seem to be linearly associated without the logit scale.
+
+2.  Which variable(s) appear to have the strongest association?
+
+Arsenic levels and distance seem to both be pretty strong, with both of them showing a change of about a 50% increase or decrease in predicted probability of switching across all of the recorded values of each of those variables, respectively. Education definitely has a consistent correlation as well, but the effect that it can have over the available values of educ is less extreme.
+
+------------------------------------------------------------------------
+
+## Categorical Predictor
+
+Examine switching probability by `assoc`.
+
+```{r}
+wells %>%
+  group_by(assoc) %>%
+  summarize(prob_switch = mean(switch))
+```
+
+Interpret the difference.
+
+```{r}
+0.5903614	- 0.5544244	
+```
+
+*This means that the probability of households that don't participate in community organizations to switch wells is 3.5937% higher than those that do.*
+
+------------------------------------------------------------------------
+
+# 3. Baseline Logistic Model
+
+Fit a simple additive model:
+
+```{r}
+fit_base <- glm(switch ~ arsenic + dist + educ + assoc,
+                data = wells,
+                family = binomial)
+
+summary(fit_base)
+```
+
+------------------------------------------------------------------------
+
+## Interpretation
+
+For each coefficient:
+
+1.  Interpret the sign.
+2.  Convert to odds ratio using `exp(coef(...))`.
+3.  Interpret the odds ratio in words.
+
+### Arsenic
+
+```{r}
+exp(coef(fit_base)["arsenic"])
+```
+
+A positive sign means that an increase in arsenic levels corresponds to an increase in the probability of a household switching wells. The probability of a household switching wells is 1.595236 times higher for every one unit increase in arsenic concentration.
+
+### Distance
+
+```{r}
+exp(coef(fit_base)["dist"])
+```
+
+A negative sign means that an increase in distance corresponds to an decrease in the probability of a household switching wells. The probability of a household switching wells is 0.9910789 times that of the previous measure for every one meter increase in the distance to the nearest safe well.
+
+### Education
+
+```{r}
+exp(coef(fit_base)["educ"])
+```
+
+A positive sign means that an increase in education corresponds to an increase in the probability of a household switching wells. The probability of a household switching wells is 1.04336 times higher for every extra year of education that the head of household has.
+
+### Associations
+
+```{r}
+exp(coef(fit_base)["assoc"])
+```
+
+A negative sign means that being active in community associations corresponds to an decrease in the probability of a household switching wells. The probability of a household switching wells is 0.8831149 times that of a household that does not.
+
+------------------------------------------------------------------------
+
+# 4. Investigating Nonlinearity and Interaction
+
+## Exploring Nonlinearity
+
+You must evaluate whether linearity on the logit scale is appropriate for the continuous variables. If you think linearity on the logit scale is appropriate, you still need to explore one variable. Fit at least two alternative models with at least one variable that has the following:
+
+-   Linear effect
+-   A transformation of the explanatory variable
+-   A nonlinear basis (e.g., polynomial or natural spline)
+
+Compare competing models in some way. You must justify your choice of comparison metric.
+
+```{r}
+
+fit_log <- glm(switch ~ log(arsenic) + dist + educ + assoc,
+                data = wells,
+                family = binomial)
+
+fit_spline <- glm(switch ~ ns(arsenic, df = 4) + dist + educ + assoc,
+                  data = wells,
+                  family = binomial)
+
+# I chose to use AIC because I don't really want to penalize for model complexity no much right now as much as predictive accuracy
+AIC(fit_base, fit_log, fit_spline)
+
+```
+
+### Questions
+
+1.  Does adding nonlinearity improve the model?
+
+It looks like adding nonlinearity does improve the model, because both the models with log and spline transformed arsenic level variables did better than the linear one.
+
+2.  How does it change the interpretation?
+
+```{r}
+summary(fit_log)
+summary(fit_spline)
+```
+
+The interpretation changes because now for the log version the coefficient represents the log likelihood change of the switching behavior for every one unit increase of the log of the arsenic levels, and for the spline version the interpretability of the coefficients for arsenic level go out the window entirely.
+
+------------------------------------------------------------------------
+
+## Interactions
+
+You must explore whether there are any meaningful interactions between any explanatory variables. This means that the effect of one variable depends on another. Fit at least one model with an interaction and compare it to a model without an interaction. You must justify your choice of comparison metric.
+
+In addition, you must justify why the interaction makes substantive sense.
+
+```{r}
+fit_int <- glm(switch ~ log(arsenic) + dist + educ + assoc + dist:educ,
+                data = wells,
+                family = binomial)
+
+# I chose to use AIC because I don't really want to penalize for model complexity no much right now as much as predictive accuracy
+AIC(fit_base, fit_log, fit_spline, fit_int)
+
+```
+
+### Questions
+
+1.  Does adding an interaction improve the model?
+
+It does, but not by a whole lot so it might not be worth adding if you're looking to have a simpler model.
+
+2.  How does it change the interpretation?
+
+```{r}
+summary(fit_int)
+```
+
+The interpretation changes because now there's a term that expresses the how much the effect of distance changes the log likelihood of switching wells changes for a one unit increase in education. It also changed the sign and significance of the coefficient for the education variable, which is interesting because it suggests that the effect of education on a household's likelihood of switching wells is mostly tied up in that interaction.
+
+3.  Why does the interaction you explored make sense in this problem?
+
+This interaction makes substantive sense because the further away the safer well is, the more motivation a household will need in order to overcome that obstacle. Therefore, the impact of the distance to the safer well on their probability of switching will have a different effect depending on their education level, and therefore their understanding of how important it is that they switch wells.
+
+------------------------------------------------------------------------
+
+# 5. Final Model Selection
+
+Construct a final model that you interpret and defend. You must interpret at least two regression coefficients in context. Your justification/defense must address:
+
+-   Functional form decisions (interactions, nonlinearities, etc.)
+-   Inclusion/exclusion of variables
+-   Trade-off between complexity and interpretability
+
+Present your final model in math and then fit the model in the code chunk below:
+
+*switch \~ log_of_arsenic + distance + education + association + distance \* education*
+
+```{r}
+### put your final model here
+fit_final <- glm(switch ~ log(arsenic) + dist + educ + assoc, family = binomial, data = wells)
+summary(fit_final)
+```
+
+```{r}
+exp(coef(fit_final)["log(arsenic)"])
+exp(coef(fit_final)["dist"])
+```
+
+We can see that for every one unit increase in the log of the arsenic levels that the odds of the household switching to the safer we We can also see that for every one meter increase in the distance to the nearest safe well, the log odds of the household switching to that safer well become 0.9902565 times of what they were before.
+
+I decided to opt for a more interpretable model that would give me more to talk about. While the spline of the arsenic level and the distance/education interaction technically both improve the model, it isn't by a whole lot, and so I don't see it as worth trading that interpretability for such marginal gains.
+
+------------------------------------------------------------------------
+
+## Interpretation on the Probability Scale
+
+With your final model, select two hypothetical households that highlight how your model works.
+
+Example:
+
+-   Household A: low arsenic, short distance
+-   Household B: high arsenic, long distance
+
+Create new data:
+
+High arsenic, long distance, but highly educated and not in community associations.
+
+```{r}
+predict(fit_final,
+        type = "response",
+        newdata = data.frame(
+          arsenic = 3,
+          dist = 90,
+          educ = 8,
+          assoc = 0
+        ))
+```
+
+Low arsenic, short distance, low education, and involved in community associations.
+
+```{r}
+predict(fit_final,
+        type = "response",
+        newdata = data.frame(
+          arsenic = 1,
+          dist = 20,
+          educ = 2,
+          assoc = 1
+        ))
+```
+
+### Questions
+
+1.  How much does predicted probability change?
+
+It changes by almost 17 percent!
+
+2.  Is the change practically meaningful?
+
+Yes it is, 17 percent more people drinking from wells with even lower levels of arsenic in them is a big deal.
+
+3.  What factors drive the similarities and differences?
+
+The arsenic levels and the distances are the main drivers of switching behavior here, but we can see that when arsenic levels get lower and the trip becomes more convenient, the low level of arsenic negates how easy the trip is, especially for those with lower levels of education.
+
+------------------------------------------------------------------------
+
+# 6. Reflection
+
+Answer the following:
+
+1.  Which predictor is most important for switching?
+
+The actual arsenic level in their well was the most influential factor when it came to switching wells.
+
+2.  Did nonlinear modeling materially change conclusions?
+
+They did, even if it wasn't by too much. Putting the arsenic levels on a log scale or spline improved the model.
+
+3.  If you were advising policymakers, what would you emphasize?
+
+I would inform them that if you tell people that there are substantially higher levels of arsenic in their well over another well, stressing that fact will drive people to change their behavior and help them to overcome the inconvenience of walking a little further for water.

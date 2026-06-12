@@ -1,0 +1,257 @@
+---
+title: "Mini-Project #1: Propensity Score Matching"
+subtitle: "Stat 437 — Right Heart Catheterization (RHC)"
+author: "Marshall Nielsen"
+format: pdf
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+# Required packages
+# install.packages(c("MatchIt", "cobalt", "tidyverse", "marginaleffects","ATbounds"))
+
+library(MatchIt)
+library(cobalt)
+library(tidyverse)
+library(marginaleffects)
+library(ATbounds) ### RHC dataset
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## 1. Introduction
+
+Welcome to a major challenge in matching. You are analyzing data from a study on the **Right Heart Catheterization (RHC)**, a diagnostic procedure used for critically ill patients. This is a legitimately challenging dataset to work with. Look [here](https://search.r-project.org/CRAN/refmans/ATbounds/html/RHC.html) for more information about the dataset.
+
+**The Causal Problem:** In the raw data, patients who receive RHC die at higher rates than those who don't. Does the procedure kill people? Or are doctors only performing the procedure on the patients who are already most likely to die?
+
+Your goal in this analysis is to estimate the ATT of `RHC` on `survival`. Only include variables that are measured prior to RHC decision.
+
+### The Data
+
+-   **Treatment (`RHC`):** `1` (Treated) or `0` (Control).
+-   **Outcome (`survival`):** Whether the patient survived (1 = yes/0 = no).
+-   **Confounders:** This dataset is "messy." It includes age, income, insurance type, and various physiological markers (mean blood pressure, heart rate, etc.).
+
+------------------------------------------------------------------------
+
+## 2. Preliminary Data Inspection
+
+We will load the data directly from `ATbounds` package.
+
+```{r data-load}
+# Load the dataset
+data(RHC)
+
+# Restrict to a subset of variables + Treatment and Outcome
+target_vars <- c("survival", "RHC", "age", "edu", "income1", "income2", 
+                 "ninsclas_No_insurance", "aps1", "surv2md1", "meanbp1", 
+                 "pafi1", "crea1", "scoma1", "dnr1_Yes", "cardiohx", "das2d3pc",
+                 "chfhx", "seps_Yes", "cat1_MOSF_Sepsis", "cat1_CHF", 
+                 "ca_Yes", "sex_Female", "race_black", "wtkilo1","temp1")
+
+RHC_use <- RHC[, target_vars]
+
+# View variables
+# View(RHC_use)
+```
+
+------------------------------------------------------------------------
+
+## 3. Calculate the naive comparison of means between survival and RHC.
+
+```{r}
+RHC_use |>
+  group_by(RHC) |>
+  summarise(Survival_Rate=mean(survival))
+```
+
+------------------------------------------------------------------------
+
+## 4. Two plots showing the selection bias
+
+Here you need to include two plots that show that the probability of RHC depends on some baseline variables. Show how the probability of RHC varies as a function of at least two baseline severity markers.
+
+**15 Recommended Variables:** These represent a mix of baseline health and acute crisis markers. Exploring these will help you realize that the RHC group is significantly sicker than the control group. Compare the rates of `RHC` and `survival` against these variables.
+
+1.  aps1 (APACHE Score): A general measure of ICU severity. Higher scores mean the patient is closer to death.
+2.  surv2md1: The physician's estimated 2-month survival probability at baseline. This is a direct measure of how "doomed" the doctor thought the patient was.
+3.  age: Older patients might be treated differently than younger ones.
+4.  meanbp1: Mean blood pressure. Low blood pressure often triggers aggressive intervention.
+5.  pafi1: Oxygenation index (PaO2/FiO2 ratio). A key marker for respiratory failure.
+6.  das2d3pc: Duke Activity Status Index. Measures how functional the patient was before getting sick.
+7.  scoma1: Glasgow Coma Score component. Measures neurological status.
+8.  crea1: Creatinine levels. High levels indicate kidney failure.
+9.  dnr1_Yes: Does the patient have a "Do Not Resuscitate" order on day 1? This heavily influences treatment intensity.
+10. cat1_MOSF_Sepsis: Multi-organ system failure with sepsis. These are extremely high-risk patients.
+11. cardiohx: Presence of a prior cardiac history.
+12. chfhx: History of Congestive Heart Failure.
+13. ninsclas_No_insurance: Does insurance status impact the choice to perform an expensive procedure?
+14. wtkilo1: Weight in kilograms.
+15. temp1: Body temperature.
+
+```{r}
+library(corrplot)
+corrplot(cor(RHC_use), type = "upper", tl.cex = 0.6,      # smaller variable name text
+         tl.col = "black")
+```
+
+Patients were more likely to receive RHC if they had high APACHE (Acute Physiology and Chronic Health Evaluation) scores, higher likelihood to be tagged for MOSF (Multiple Organ System Failure) with Sepsis, or lower P/F ratios (meaning critically low lung oxygenation efficiency). These people are in really bad shape.
+
+```{r}
+library(dplyr)
+library(tidyr)
+
+# I will fully admit that ChatGPT helped me with this, but the outcome was really good!
+
+RHC_use_2 <- RHC_use %>%
+  mutate(
+    APACHE_bucketed = cut(aps1,
+                    breaks = quantile(aps1, probs = seq(0, 1, 0.33), na.rm = TRUE),
+                    include.lowest = TRUE),
+
+    oxygenation_bucketed = cut(pafi1,
+                      breaks = quantile(pafi1, probs = seq(0, 1, 0.33), na.rm = TRUE),
+                      include.lowest = TRUE),
+
+    MOSF_Sepsis = factor(cat1_MOSF_Sepsis)
+  )
+
+df_long <- RHC_use_2 %>%
+  pivot_longer(cols = c(APACHE_bucketed, oxygenation_bucketed, MOSF_Sepsis),
+               names_to = "grouping_variable",
+               values_to = "group_level")
+
+summary_df <- df_long %>%
+  group_by(grouping_variable, group_level) %>%
+  summarise(
+    survival_rate = mean(survival, na.rm = TRUE),
+    rhc_rate = mean(RHC, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  pivot_longer(cols = c(survival_rate, rhc_rate),
+               names_to = "outcome",
+               values_to = "rate")
+
+ggplot(summary_df,
+       aes(x = group_level,
+           y = rate,
+           fill = outcome)) +
+  geom_bar(stat = "identity",
+           position = "dodge") +
+  facet_wrap(~ grouping_variable,
+             scales = "free_x") +
+  labs(title = "Survival and RHC Rates Across Key Variables",
+       x = "Group",
+       y = "Rate",
+       fill = "Outcome") +
+  theme_minimal()
+
+```
+
+------------------------------------------------------------------------
+
+## 5. The Propensity Score Model
+
+**Task:** Define your `ps_formula`. You have dozens of variables (e.g., `age`, `edu`, `cat1`, `das2d3pc`, `meanbp1`).
+
+**Justification:** Given how "sick" the treated group is, which physiological markers are essential to include? Did you use any squared terms or interactions to improve the prediction of who gets an RHC?
+
+*These were the five main variables on our corrplot to show a correlation with whether someone received a RHC or not.*
+
+```{r ps-model}
+ps_formula <- RHC ~ aps1 + meanbp1 + pafi1 + cat1_MOSF_Sepsis + surv2md1 + wtkilo1 + seps_Yes + crea1 + dnr1_Yes
+```
+
+------------------------------------------------------------------------
+
+## 6. Matching Procedure ("The Knobs")
+
+**Task:** This is where the project gets difficult. You must choose your "knobs" in `matchit()`.
+
+**The challenge:** If you match 1:1 without a caliper, your balance will likely be poor. If you use a tight caliper, you might lose many of your treated units.
+
+**Justification:** Defend your choice of **distance**, **Ratio**, **Caliper**, and **replace**. How many treated units were you willing to "throw away" to ensure the remaining ones were actually comparable to the controls?
+
+```{r matching}
+m_out <- matchit(
+  formula = ps_formula,
+  data = RHC_use,
+method   = "nearest",
+distance = "gbm",    # KNOB 4: try "gbm"
+estimand = "ATT",      # KNOB 5: don't change
+ratio    = 2,          # KNOB 1: try 2 or 3
+caliper  = .2,        # KNOB 2: try 0.1 or 0.3; set to NULL for no caliper
+replace  = TRUE       # KNOB 3: try TRUE
+)
+```
+
+*I chose GBM for method because I wanted to be able to capture nonlinear trends and I want to pick up on interactions that I didn't explicitly model, a 2:1 ratio since we've got more controls than cases but not that many more, I left the caliper on .2 to make it tight but not too tight, and I set replace to TRUE so that the model is never forced into a bad match.*
+
+------------------------------------------------------------------------
+
+## 7. Assessing Balance
+
+**Task:** Produce a summary and a Love Plot.
+
+**Justification:** Discuss your balance. Are your Standardized Mean Differences (SMDs) below 0.1 or 0.25? If some SMDs remain above 0.1, explain why further tightening may not be feasible.
+
+```{r balance}
+summary(m_out)
+love.plot(m_out, thresholds = c(m = .1))
+```
+
+*It looks like my covariate means across treatment and control really balanced out here! All of my SMDs are below 0.1, which looks really good. It could be worth looking into whether adding more covariates would have made this more difficult to achieve, but I did choose the variables with some of the highest mean differences so I think the parameters that I chose were effective.*
+
+------------------------------------------------------------------------
+
+## 8. Estimating the ATT
+
+**Task:** Extract the matched data and estimate the ATT using a model that you justify. Note: Since the outcome is binary (death), you should use a model that reflects that (like `glm` with family=binomial -- logistic regression -- or a proportion test).
+
+**Justification:** Explain your analysis choice and how you handled the weights from the matching process.
+
+```{r estimation}
+m_dat <- match.data(m_out)
+
+att_est <- with(
+  m_dat,
+  weighted.mean(survival[RHC == 1], weights[RHC == 1]) -
+    weighted.mean(survival[RHC == 0], weights[RHC == 0])
+)
+att_est
+```
+
+```{r}
+fit_att <- lm(survival ~ RHC, data = m_dat, weights = weights)
+summary(fit_att)
+
+avg_comparisons(fit_att,
+                variables = "RHC",
+                vcov = ~subclass,
+                newdata = subset(RHC == 1))
+```
+
+I did the simpler version first just to make sure that I understood it and then I went back to do the more complicated version to see if it could give me any more insights. You can see that the coefficient in the second model for RHC is the same as the weighted difference in means from the first one. Both show that there was a positive average treatment effect on the treated population (or the treatment had a negative association .
+
+------------------------------------------------------------------------
+
+## 9. Results & Interpretation
+
+**Task:** Report the final effect of RHC on the probability of death.
+
+**Discussion:**
+
+1.  Did the matching change the "story" of the data compared to a naive comparison of means?
+
+Matching only slightly changed the story of the data. Before matching it looked like the RHC treatment was really doing harm, but we were able to tease out the fact that some of that was due to confounding variables that made people both more likely to receive the treatment and more likely to die. After controlling for those covariates, the effect lessened and might have reversed with better covariates.
+
+2.  Based on your "knob" settings, how generalizable are these results (i.e., did you match a representative sample of treated patients, or only a tiny "healthy" subset)?
+
+We actually got all but one of the treated patients in this case, and we only lost about half of our controls. So I would say that these results are about as generalizable as we're going to get given the dataset.
+
+3.  Why is RHC such a difficult dataset for propensity score matching?
+
+This is a pretty difficult dataset for propensity score matching because there are so many variables and so many possible interactions that in order to avoid the "curse of dimensionality" we're kind of forced to choose a subset of covariates that we think are important and go with that. I used my corrplot to make those decisions so I think that they were done well, but there are probably more variables and interactions in there that would've benefited my propensity score model that I wasn't able to try! I think that there might have been important covariates missing here as well.

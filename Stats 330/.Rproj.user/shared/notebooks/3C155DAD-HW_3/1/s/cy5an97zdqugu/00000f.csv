@@ -1,0 +1,6 @@
+"0","mse <- mean(residuals(linear_model)^2)"
+"0","print(mse)"
+"1","[1]"
+"1"," 75907220"
+"1","
+"

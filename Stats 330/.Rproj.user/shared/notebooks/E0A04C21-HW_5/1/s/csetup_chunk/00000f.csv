@@ -1,0 +1,44 @@
+"0","# Load packages here"
+"0","library(bestglm)"
+"2","Warning: package ‘bestglm’ was built under R version 4.3.3"
+"2","Loading required package: leaps
+"
+"2","Warning: package ‘leaps’ was built under R version 4.3.3"
+"0","library(tidyverse)"
+"0","library(ggfortify)"
+"2","Warning: package ‘ggfortify’ was built under R version 4.3.3"
+"0","library(glmnet)"
+"2","Warning: package ‘glmnet’ was built under R version 4.3.3"
+"2","Loading required package: Matrix
+"
+"2","
+Attaching package: ‘Matrix’
+
+"
+"2","The following objects are masked from ‘package:tidyr’:
+
+    expand, pack, unpack
+
+"
+"2","Loaded glmnet 4.1-8
+"
+"0","library(patchwork)"
+"2","Warning: package ‘patchwork’ was built under R version 4.3.3"
+"0","library(car)"
+"2","Loading required package: carData
+"
+"2","
+Attaching package: ‘car’
+
+"
+"2","The following object is masked from ‘package:dplyr’:
+
+    recode
+
+"
+"2","The following object is masked from ‘package:purrr’:
+
+    some
+
+"
+"0","set.seed(42)"

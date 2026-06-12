@@ -1,0 +1,112 @@
+---
+title: "STAT 330 | Statistical Modeling 2 | Homework Rules"
+format: 
+  html:
+    embed-resources: true 
+editor: visual
+---
+
+## General Information
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto and get help, see <https://quarto.org>. This [cheat sheet](https://www.datacamp.com/cheat-sheet/quarto-cheat-sheet-previously-known-as-r-markdown) from DataCamp looks useful. Also the [Rmarkdown cheatsheet](https://www.rstudio.com/wp-content/uploads/2015/02/rmarkdown-cheatsheet.pdf) will also be useful.
+
+Put all R packages you need in the `setup` R code chunk (Note: the "setup" code chunk below has the parameter `include=FALSE`, so it will not show up in the generated HTML file.)
+
+```{r setup, include=FALSE}
+# load any necessary packages here
+library(tidyverse)
+```
+
+To generate this .qmd file into an HTML file (not a PDF file), click the "Render" button (top left).
+
+Before submitting an assignment, make sure to SPELLCHECK your document (top left "ABC" button with a check mark).
+
+## Including R Code
+
+Put all R code in chunks like this:
+
+```{r}
+my_data <- as.data.frame(cbind(c(3, 5, 7, 9), c(1, 2, 3, 4)))
+```
+
+When formatting your R code, you should follow the tidyverse style guide found here: <https://style.tidyverse.org/index.html>. A few key formatting rules from the Guide:
+
+-   You should put spaces after every comma and before and after equality/inequality sign.
+-   Your R code should not exceed 80 characters per line (you can check this by looking at the second number at the bottom left of this page: ##:**\##**). You can also add a vertical line at 80 characters in your RMD file to help you know when you need to start a new code line by going to Tools-\>Global Options-\>Code-\>Display then check the box "Show margin" and change the "Margin column" to 80.
+-   When adding comments to your R code on the same line you should indent two spaces and then add the comment.
+
+Here is an example of BAD code:
+
+```{r}
+#this is my poorly formatted comment
+test<-c(1,2,3,10)#this is my poorly formatted comment and code
+thisisavariablename <- cbind(c(3, 5, 7, 9), c(1, 2, 3, 4), c(2, 4, 6, 8), c(10, 8, 6, 4))#this is my poorly formatted comment and code
+```
+
+Here is an example of GOOD code:
+
+```{r}
+# this is my properly formatted comment
+test <- c(1, 2, 3, 10)  # this is my properly formatted comment and code
+this_is_a_variable_name <- cbind(c(3, 5, 7, 9), 
+                                 c(1, 2, 3, 4), 
+                                 c(2, 4, 6, 8), 
+                                 c(10, 8, 6, 4))  
+# above is properly formatted code (does not exceed 80 lines)
+```
+
+## Including Plots
+
+You can embed plots into qmd documents. When you do, you should make sure the x- and y-axes have meaningful labels (including appropriate units).
+
+Here is an example of a BAD plot:
+
+```{r}
+set.seed(1234)
+my_plot_data <- as.data.frame(cbind(rnorm(20, 5, 1), rnorm(20, 7, 1)))
+
+ggplot(data = my_plot_data) +
+  theme_bw() +  # I, personally, like this theme
+  geom_point(mapping = aes(x = V1, y = V2))
+# this plot is bad because it does not have meaningful x- and y-axis labels - we have no idea what
+#     this plots is trying to show.
+```
+
+Here is an example of a GOOD plot:
+
+```{r, fig.align='center'}
+ggplot(data = my_plot_data) +
+  geom_point(mapping = aes(x = V1, y = V2)) +
+  theme_bw() +  # I, personally, like this theme
+  xlab("Time to Launch (minutes)") +
+  ylab("Distance (mm)") 
+```
+
+## Formatting Text
+
+R Markdown has built-in, useful ways to format text. Here are just a few:
+
+# This is a header with a very large font
+
+## This is a header with a slightly smaller font
+
+### This is a header with a smaller font than the last header (and so forth)
+
+This is an unordered (bulletted) list:
+
+-   this is an item in the list
+    -   this is a sub-item in the list
+-   this is an item in the list
+
+This is an ordered (numbered) list:
+
+1.  this is an item in the list
+2.  this is an item in the list
+
+You can also use LaTeX code in R Markdown. You will be asked to write out equations in R Markdown for many of your homework assignments. Here is an example of what that might look like:
+
+$\log(\text{LifeExp}_i) = \beta_0 + \beta_1 \times \text{Precip}_i + \epsilon_i$ where $\epsilon_i \overset{iid}{\sim} N(0, \sigma^2)$
+
+$\log(\widehat{\text{LifeExp}}_i) = 3.43 + 74.63 \times \text{Precip}_i$
+
+If you are ever unsure how to format something using LaTeX, Googling the question will almost always be helpful. You may certainly ask me or the TAs for help, as well.

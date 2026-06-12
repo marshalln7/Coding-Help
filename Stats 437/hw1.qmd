@@ -1,0 +1,266 @@
+---
+title: "Homework #1 — Morbidity & Mortality (Chapters 3–4)"
+author: "Marshall Nielsen"
+format: pdf
+execute:
+  echo: true
+  warning: false
+  message: false
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+# Part 1
+
+## A. Numerators and Denominators
+
+For each quantity below, write the numerator, denominator, and time
+window.
+
+### (i)
+
+Incidence rate of RSV in person-years for children under 5 in Weber
+County in 2022
+
+-   **Numerator:** Number of new cases of RSV
+-   **Denominator:** Population of children under 5
+-   **Time Window:** The year 2022
+
+### (ii)
+
+Point prevalence of asthma on Jan 1, 2026 in a panel of pediatric
+patients at Utah Valley Regional Medical Center.
+
+-   **Numerator:** Number of current asthma cases
+-   **Denominator:** Number of pediatric patients that we have
+-   **Time window:** That specific day
+
+### (iii)
+
+Average cause-specific mortality rate for heart disease in Florida in
+2021-2025
+
+-   **Numerator:** Deaths from specifically heart disease
+-   **Denominator:** Population of Florida in the middle of 2023
+-   **Time window:** From 2021-2025
+
+## B. Fill in the blanks:
+
+-   Incidence counts **new** cases over a **fixed** period.
+-   Prevalence counts **active** cases at a **point in time** (or during
+    a period).
+-   Mortality counts **deaths** over a **fixed** period.
+
+## C. Short Responses
+
+### (i) Give one reason prevalence could increase even if incidence stays the same.
+
+Prevalence would increase if the window of time in which someone has the
+disease is extended.
+
+### (ii) Give one reason measured incidence could increase even if true incidence stays the same.
+
+There could be changes to diagnostic criteria that make it so more
+people are diagnosed with the disease.
+
+# Part 2 — Computing Morbidity and Mortality Measures (by hand)
+
+*Show all work. Clearly label units.*
+
+## A. Cumulative Incidence
+
+A cohort of $N = 2,500$ individuals is disease-free at baseline. Over a
+follow-up period of $T = 3$ years, $C = 75$ new cases of Disease X
+occur. Assume complete follow-up.
+
+### (i) Formula and Calculation
+
+$$\text{Cumulative Incidence} = \frac{\text{Number of new cases during the period}}{\text{Number at risk at the start of the period}} = 75/2500 = 0.03$$
+
+### (ii) Per 100,000
+
+$$\text{CI per } 100,000 = 0.03 \times 100,000 = 3,000$$
+
+## B. Incidence Rate Using Person-Time
+
+A study follows individuals until disease or censoring:
+
+-   10 people followed for 2.0 years
+-   8 people followed for 1.5 years
+-   12 people followed for 0.5 years
+-   Total incident cases observed: 9
+
+### (i) Compute total person-time
+
+$$\text{Person-years} = (10)(2) + (8)(1.5) + (12)(0.5) = 38 \text{ units}$$
+
+### (ii) Compute incidence rate per 100 person-years
+
+$$\text{Incidence Rate}= \frac{9}{38} = 23.7 \text{ units}$$
+
+## C. Point vs. Period Prevalence
+
+A clinic follows $N = 800$ patients.
+
+-   On January 1, 2026, 40 patients have asthma
+-   During 2026, 90 patients had asthma at any point
+
+### (i) Compute Point Prevalence
+
+$$\text{Point Prevalence} = \frac{40}{800} = 5\text{ per hundred}$$
+
+### (ii) Compute Period Prevalence
+
+$$\text{Period Prevalence} = \frac{90}{800} = 11\text{ per hundred}$$
+
+### (iii) Fill in
+
+Period prevalence must be **greater** than point prevalence.
+
+## D. Mortality Rate vs. Proportionate Mortality
+
+Two communities:
+
+| Community | Population | Total deaths | Heart disease deaths |
+|-----------|------------|--------------|----------------------|
+| A         | 10,000     | 200          | 60                   |
+| B         | 10,000     | 100          | 30                   |
+
+### (i) All-cause mortality rate per 1,000
+
+**Community A:**
+$$\frac{200}{10,000} \times 1,000 = 20\text{ per 1000}$$
+
+**Community B:**
+$$\frac{100}{10,000} \times 1,000 = 10\text{ per 1000}$$
+
+### (ii) Proportionate mortality
+
+**Community A:** $$\frac{60}{200} = 30\%$$
+
+**Community B:** $$\frac{30}{100} = 30\%$$
+
+### (iii) Conceptual question
+
+Explain why proportionate mortality does not measure the risk of dying
+from heart disease:
+
+Proportionate mortality is only the measure of, given you died, the
+chances of your death being of heart disease. If a community has a
+higher chance of dying overall the average person would have a higher
+chance of dying from heart disease, even if the proportionate mortality
+of heart disease compared to all other causes remains the same.
+
+# 3. Using R with Lyme disease morbidity calculations
+
+## A. Setup
+
+```{r}
+library(dplyr)
+library(readr)
+library(tidyr)
+library(ggplot2)
+library(sf)
+library(usmap)
+
+# Load the dataset
+county_data <- read_csv("lyme_data.csv")
+
+# Quick overview of column names
+names(county_data)
+```
+
+## B. County-level cumulative incidence (2018–2022) and map it.
+
+Goal: For each county, compute the 5-year cumulative incidence:
+
+$CI_{2018-2022} = \frac{\text{Cases2018}+\text{Cases2019}+\text{Cases2020}+\text{Cases2021}+\text{Cases2022}}{\text{TOT\_POP}}$
+
+Then plot it on a US county map. Use code from January 13th lecture.
+
+### (i)
+
+Compute the indicence rate.
+
+```{r}
+# Requirements:
+# - Store the resulting dataset as county_ci
+# - Fill in the commented code.
+county_ci <- county_data |>
+  mutate(
+    cases_5yr = Cases2018 + Cases2019 + Cases2020 + Cases2021 + Cases2022,
+    ci_2018_2022 = cases_5yr / TOT_POP,
+    FIPS = paste0(sprintf("%02d", as.numeric(stcode)), 
+                  sprintf("%03d", as.numeric(ctycode)))
+  )
+
+```
+
+### (ii)
+
+Plot the incidence rate. Please update the orange and darkred in the
+color scheme.
+
+```{r}
+usa_counties <- us_map("counties") %>%
+  left_join(county_ci, by = c("fips" = "FIPS"))
+
+ggplot(usa_counties) +
+  theme_bw() +
+  geom_sf(aes(fill = ci_2018_2022)) +
+  scale_fill_gradientn(colors = c("white", "orange", "darkred")) +
+  labs(title = "Lyme Disease Cumulative Incidence (2018-2022)",
+       fill = "5-year\nIncidence")
+```
+
+## C. Maine state-level rates by year (sum over counties)
+
+Goal: For each year 2001–2022:
+
+1.  Sum cases across all Maine counties
+2.  Sum population across all Maine counties
+3.  Compute the state-level rate per 100,000
+4.  Print the first 10 rows of the `maine_state` data frame
+5.  Plot the state-level rate over time
+
+### (i) Compute and output table
+
+```{r}
+# Start with the code below
+# Hint: use group_by(year) and summarise() to aggregate county data.
+# create variable rate_per_100k
+
+maine_state <- county_data %>%
+  filter(stname == "Maine") %>%
+  pivot_longer(cols = starts_with("Cases"), names_to = "year", values_to = "cases") %>%
+  mutate(year = as.integer(gsub("Cases", "", year))) %>%
+  filter(year >= 2001 & year <= 2022) %>%
+  group_by(year) %>%
+  summarise(case_total = sum(cases), population = mean(TOT_POP)) %>%
+  mutate(
+    rate_per_100k = (case_total / population) * 100000
+  )
+
+slice_head(maine_state,n = 10)
+```
+
+### (ii) Plot Maine’s state-level rate over time
+
+```{r}
+ggplot(maine_state, aes(x = year, y = rate_per_100k)) +
+  geom_line(col = "darkblue") +
+  geom_point() +
+  theme_bw() +
+  labs(title = "Maine Lyme Disease Rate Over Time (State-level)",
+       x = "Year", y = "Cases per 100,000")
+```
+
+### (iii) Highest and Lowest Rates
+
+Write your answers here:
+
+-   Highest rate year (2001–2022) and that year's rate: 2022 had a rate
+    of 3052 per 100,000\
+-   Lowest rate year (2001–2022) and that year's rate: 2001 had a rate
+    of 124 per 100,000

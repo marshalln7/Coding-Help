@@ -1,0 +1,318 @@
+---
+title: "Stat 437 In-Class Mini-Project: Meta-Regression and Blood Pressure"
+subtitle: "Collins et al. (1990): blood pressure reduction and stroke"
+author: "Marshall Nielsen"
+format:
+  pdf:
+    documentclass: article
+    geometry: margin=1in
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(metafor)
+library(kableExtra)
+
+options(knitr.kable.NA = "")
+theme_set(theme_minimal(base_size = 14))
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# In-Class Mini-Project
+
+This project uses the published overview in Collins et al. (1990) to study a simple meta-regression question:
+
+> In medicines that control blood pressue, do trials with larger reductions in diastolic blood pressure (DBP) show larger reductions in stroke risk?
+
+We will use trial-level information from the tables in the paper. The main goal is to practice:
+
+-   constructing study-level effect sizes,
+-   fitting a random-effects meta-analysis,
+-   fitting a meta-regression,
+-   and interpreting the moderator(s) in context.
+
+A small warning before we start: the study-level moderator is not the same thing as a patient-level causal effect. Keep that in mind as you work.
+
+# Data entry
+
+The table below combines the trial characteristics from Tables 1 and 2 with the stroke outcome counts from the overview figure on page 831. Carter did not report the DBP difference in attendees, so that value is left as missing.
+
+## Variable Descriptions
+
+The dataset (names `collins_bp` here) combines trial characteristics and outcomes from Collins et al. (1990). Each row corresponds to a randomized trial (or subgroup within a trial).
+
+-   `trial`: Name of the study or trial identifier.
+
+-   `trial_group`: Description of the study population or subgroup (often based on baseline diastolic blood pressure categories or trial design).
+
+-   `age`: Mean age of participants in the study (years).
+
+-   `male_pct`: Percentage of participants who are male.
+
+-   `follow_up`: Average duration of follow-up (years).
+
+-   `blinding`: Blinding design of the trial (e.g., double-blind, single-blind, or none).
+
+-   `entry_dbp`: Range or threshold of diastolic blood pressure (DBP) used as an inclusion criterion at baseline (mm Hg).
+
+-   `dbp_diff`: Difference in diastolic blood pressure between treatment and control groups during the trial (mm Hg). *This is the key moderator used in the meta-regression.*
+
+-   `e_t`: Number of stroke events observed in the treatment group.
+
+-   `n_t`: Total number of participants in the treatment group.
+
+-   `e_c`: Number of stroke events observed in the control group.
+
+-   `n_c`: Total number of participants in the control group.
+
+-   `main_drugs`: Primary antihypertensive medications used in the treatment group (abbreviations from the original paper, e.g., diuretics, beta-blockers, etc.).
+
+```{r,echo = FALSE}
+collins_bp <- tribble(
+  ~trial, ~trial_group, ~age, ~male_pct, ~follow_up, ~blinding, ~entry_dbp, ~dbp_diff, ~e_t, ~n_t, ~e_c, ~n_c, ~main_drugs,
+  "VA-NHLBI", "all patients had entry DBP < 110 mm Hg", 38, 81, 1.5, "Double", "85-105", 7.0, 0, 508, 0, 504, "CD",
+  # "HDFP I", "all patients had entry DBP < 110 mm Hg", 51, 55, 5.0, "None", "90-104", 5.0, 59, 3903, 88, 3922, "CD",
+  # "HDFP II", "all patients had entry DBP <= 115 mm Hg", 51, 55, 5.0, "None", "105-114", 5.0, 25, 1048, 36, 1004, "CD",
+  # "HDFP III", "all patients had entry DBP > 115 mm Hg", 51, 55, 5.0, "None", ">=115", 5.0, 18, 534, 34, 529, "CD",
+    "HDFP", "mixed", 51, 55, 5.0, "None", "mixed", 5.0, 102, 5485, 158, 5455, "CD",
+  "Oslo", "all patients had entry DBP < 110 mm Hg", 45, 100, 5.5, "None", "90-109", 10.0, 0, 406, 5, 379, "HZ",
+  "ANBPS", "all patients had entry DBP < 110 mm Hg", 50, 63, 4.0, "Single", "95-109", 6.0, 13, 1721, 22, 1706, "CZ",
+  "MRC", "all patients had entry DBP < 110 mm Hg", 52, 52, 5.0, "Single", "95-109", 6.0, 60, 8700, 109, 8654, "BF or PR",
+  "VA (90-114)", "all patients had entry DBP <= 115 mm Hg", 51, 100, 3.3, "Double", "90-114", 19.0, 5, 186, 20, 194, "HZ + RE + HD",
+  "USPHS", "all patients had entry DBP <= 115 mm Hg", 44, 80, 7.0, "Double", "90-114", 10.0, 1, 193, 6, 196, "CZ + RU",
+  "HSCSG", "all patients had entry DBP <= 115 mm Hg", 59, 41, 2.3, "Double", "90-115", 12.0, 43, 233, 52, 219, "MC + DS",
+  "VA (115-129)", "all patients had entry DBP > 115 mm Hg", 51, 100, 1.5, "Double", "115-129", 27.0, 5, 70, 20, 73, "HZ + RE + HD",
+  "Wolff", "all patients had entry DBP > 115 mm Hg", 49, 32, 1.4, "Double", "100-130", 20.0, 2, 45, 1, 42, "RE",
+  "Barraclough", "all patients had entry DBP > 115 mm Hg", 56, 43, 2.0, "Single", "100-120", 13.0, 0, 58, 0, 58, "BF or MD",
+  # "Carter", "all patients had entry DBP > 115 mm Hg", NA, 57, 4.0, "None", ">=110", NA_real_, 10, 49, 21, 48, "TH",
+  "EWPHE", "all patients had entry DBP > 115 mm Hg", 72, 30, 4.7, "Double", "90-119", 10.0, 32, 416, 48, 424, "HZ + TT",
+  "Coope", "all patients had entry DBP > 115 mm Hg", 69, 31, 4.4, "None", "105-120", 11.0, 20, 419, 39, 465, "AT"
+) %>%
+  mutate(
+    n_total = n_t + n_c
+  )
+```
+
+```{r,echo=FALSE}
+collins_bp %>%
+  dplyr::select(trial, age, male_pct, follow_up, blinding, entry_dbp, dbp_diff, e_t, n_t, e_c, n_c, main_drugs) %>%
+  kable(
+    digits = 2,
+    col.names = c("Trial", "Age", "Male %", "Follow (yr)", "Blinding",
+                  "Entry DBP", "DBP diff", "Stroke Tx", "Tx N",
+                  "Stroke Ctl", "Ctl N", "Drugs"),
+    booktabs = TRUE,
+    longtable = FALSE,
+    align = "lccccccrrrrll"
+  ) %>%
+  kable_styling(font_size = 7, latex_options = c("scale_down"))
+```
+
+## Part 1. Build study-level effect sizes
+
+For the rest of the project, use the stroke counts to compute a study-level log odds ratio and its sampling variance.
+
+Use `metafor::escalc()` with `measure = "OR"`.
+
+Something to think about:
+
+-   VA-NHLBI has 0 events in both arms.
+
+-   What does a continuity correction do in a double-zero trial?
+
+-   Are we comfortable adding a number that isn't connected to data?
+
+    -   Should this study stay in the primary analysis, or should it be handled as a sensitivity analysis?
+
+    **Answer Here**
+
+```{r}
+# Create the 2 x 2 table columns needed by escalc()
+# ai = events in treatment
+# bi = non-events in treatment
+# ci = events in control
+# di = non-events in control
+
+dat_es <- escalc(
+  measure = "OR",
+  ai = e_t,
+  bi = n_t - e_t,
+  ci = e_c,
+  di = n_c - e_c,
+  data = collins_bp,
+  add = 0.5,     ## this is a continuity correction for the 2x2 table
+  ## this continuity correction is only applied to all.
+  to = "all",    
+  drop00 = FALSE
+)
+
+# Inspect the study-level log(OR) values and variances
+dat_es %>%
+  dplyr::select(trial, dbp_diff, yi, vi)
+```
+
+Questions:
+
+-   What is the interpretation of `yi`?
+
+yi is the "effect size" that the study found, expressed as a log odds ratio between the odds of getting a stroke in the treatment group over the control
+
+-   What does `vi` represent?
+
+vi is the variance of that yi, which we're going to use to weight our studie
+
+-   Which studies look most extreme?
+
+The Olso, the VA-NHLBd, and the Barraclough studies all have the most extreme effect sizes.
+
+-   Which study has the largest sample size, and why might that matter?
+
+The MRC study was the biggest, which matters because it means that it'll have the lowest variance and the most weight later on, defining a large part of our meta regression.
+
+## Part 2. Fit a fixed-effects model
+
+Fit a fixed-effects model to establish the baseline heterogeneity.
+
+```{r}
+re_mod <- rma(yi = yi, vi = vi, data = dat_es, method = "FE")
+summary(re_mod)
+```
+
+Questions:
+
+-   What is the estimated average effect?
+
+The average log odds was -0.5357
+
+-   What are the estimated `tau^2` and `I^2` values?
+
+The I\^2 estimate is 0.28%, which is basically zero, and tau squared is basically zero as well, according to people in class.
+
+-   Is heterogeneity negligible, moderate, or substantial?
+
+The heterogeneity is basically negligable.
+
+-   Do you think a random-effects model is needed here? Why or why not?
+
+This doesn't make me think that we actually need the random-effects model because it seems like all of the studies are measuring about the same thing, since the variability due to heterogeneity is low.
+
+## Part 3. Fit a meta-regression with DBP reduction
+
+Now ask whether the amount of DBP reduction helps explain the variation in stroke risk across trials.
+
+```{r}
+meta_mod <- rma(
+  yi = yi,
+  vi = vi,
+  mods = ~ dbp_diff,
+  data = dat_es,
+  method = "FE"
+)
+
+summary(meta_mod)
+```
+
+Questions:
+
+-   What is the sign of the slope for `dbp_diff`?
+
+The slope is negative.
+
+-   Does the direction make scientific sense?
+
+This makes scientific sense, because higher values of diastolic blood pressure (better blood pressure) mean a lower log odds ratio with means that there is lower chance of stroke in the treatment group than the control group.
+
+-   How should you interpret the moderator in context?
+
+I would interpret it as the the way the treatment (the drugs) affect the outcomes (the numbers of strokes).
+
+-   What does the test for moderators tell you?
+
+It tells us if the moderator is actually acting as a significant connection between the treatment and the control.
+
+Now compare the heterogeneity before and after adding the moderator.
+
+```{r}
+tibble(
+  model = c("Random effects", "Meta-regression"),
+  tau2 = c(re_mod$tau2, meta_mod$tau2),
+  I2 = c(re_mod$I2, meta_mod$I2),
+  R2_analog = c(NA, meta_mod$R2)
+)
+```
+
+Questions:
+
+-   How much of the heterogeneity is explained by `dbp_diff`?
+
+0.2775625
+
+-   What does the `R2` analog mean here?
+
+It is the percentage of the variation in the log odds between the treatment and the control that is explained by the meta regression model.
+
+-   Is this the same as ordinary regression `R^2`?
+
+Not exactly, because this is tracking the variation between the studies that is explained, not the variation between the individuals.
+
+-   If `R2` is small, does that mean the moderator is unimportant?
+
+    I would say that it is still important because a difference in 14% in the response could be the difference between life and death.
+
+## Part 4. Visualize the meta-regression
+
+Make a bubble plot of the fitted meta-regression.
+
+```{r}
+regplot(
+  meta_mod,
+  xlab = "DBP reduction (mm Hg)",
+  ylab = "log(OR)",
+  pch = 21,
+  bg = "steelblue"
+)
+```
+
+Questions:
+
+-   Which studies have the most leverage in the plot?
+
+    It looks like the outliers are having the most leverage on the plot.
+
+-   Why do a few small studies with extreme effects sometimes influence the fitted line so much?
+
+    They influence the line a lot because even though they carry low weights, because they're so far off they're exerting a lot of influence on the slope of the line.
+
+-   Does a strong line mean the relationship is causal?
+
+    Not necessarily, a really good regression still is only showing correlation between variables on a study by study basis, correlations that could be driven by other underl?ng factors.
+
+## Part 5. Discussion
+
+Discuss these questions with your group:
+
+1.  The ecological fallacy occurs when relationships observed between variables at an aggregate (group) level are incorrectly assumed to hold true for individuals, leading to biased conclusions. It is a major risk in meta-regressions using aggregated data. Here, if studies with larger DBP reductions also have lower stroke risk, can we conclude that individual patients who lower DBP more will necessarily benefit more? Why or why not?
+
+We can't make that conclusion because we're still subject to simpson's paradox or the ecological fallacy here. Individual studies could show the opposite from what the regression of studies shows.
+
+2.  Leverage: which studies are most influential in this meta-regression, and why might small trials with large effects be especially influential?
+
+The small influential studies on the fringes of the visualization are the most influential, which will often be small trials with large effects.
+
+3.  Interpretation of `R^2`: If $R^2$ is 0% but the moderator is statistically significant, what does that tell us about the 'unexplained' variance?"
+
+Dr. White said that we didn't have to answer this one.
+
+4.  Model justification: if `dbp_diff` explains little heterogeneity, what other study-level moderators might you try next, and which ones would you trust most?
+
+Age could be a good one to try, since there's some real variability there, as well as the average duration to follow up which can capture greater effects over time.
+
+Optional extension if time remains:
+
+-   Try another moderator/variable such as `age` or `male_pct`.
+-   Does it explain more or less heterogeneity than `dbp_diff`?
+-   Would you trust it as a more plausible scientific explanation? \`\`\`

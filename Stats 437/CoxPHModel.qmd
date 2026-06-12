@@ -1,0 +1,1064 @@
+---
+title: "Cox Proportional Hazards Model"
+author: "Philip White"
+format:
+  revealjs:
+    slide-number: true
+    incremental: true
+    theme: serif
+    css: slides.css
+    scrollable: true
+    margin: 0
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(survival)
+library(survminer)
+theme_set(theme_minimal(base_size = 14))
+```
+
+------------------------------------------------------------------------
+
+## Roadmap
+
+1.  From comparing curves → modeling covariates\
+2.  The Cox proportional hazards model\
+3.  Interpretation of coefficients\
+4.  Why no baseline hazard or intercept?\
+5.  Likelihood (conceptual)\
+6.  Example with data
+
+------------------------------------------------------------------------
+
+## From KM Curves to Regression
+
+::: fragment
+So far, we have:
+
+-   Estimated survival curves (Kaplan–Meier)
+-   Compared curves across groups (log-rank test)
+:::
+
+::: fragment
+But what if we want to:
+
+-   Adjust for multiple variables?
+-   Model continuous predictors?
+-   Estimate effects simultaneously?
+:::
+
+::: fragment
+> We need a **regression model for survival data**.
+:::
+
+------------------------------------------------------------------------
+
+## Goal: Model the Hazard
+
+Instead of modeling survival directly, we model:
+
+$$
+h(t \mid X)
+$$
+
+::: fragment
+> The hazard: instantaneous risk at time $t$ given survival up to $t$.
+
+$$
+h(t | X) =
+\lim_{\Delta t \to 0}
+\frac{P(t < T \le t + \Delta t \mid T \ge t, X)}{\Delta t}
+$$
+
+Equivalent expression:
+
+$$
+h(t | X) = \frac{f(t | X)}{S(t | X)}
+$$
+:::
+
+::: fragment
+We want to understand how covariates affect this hazard.
+:::
+
+------------------------------------------------------------------------
+
+## Cox Proportional Hazards Model
+
+The Cox model assumes:
+
+$$
+h(t \mid X) = h_0(t)\exp(X^\top \beta)
+$$
+
+::: fragment
+### Breaking Down the Model
+
+-   $h(t \mid X)$: hazard for an individual with covariates $X$
+:::
+
+::: fragment
+-   $h_0(t)$: **baseline hazard**
+    -   hazard when $X = 0$
+    -   This may not be interpretable.
+:::
+
+::: fragment
+-   $\exp(X^\top \beta)$: multiplicative effect of covariates
+:::
+
+------------------------------------------------------------------------
+
+## Key Interpretation
+
+Compare two individuals with covariates $X_1$ and $X_2$:
+
+$$
+\frac{h(t \mid X_1)}{h(t \mid X_2)} =
+\exp\big((X_1 - X_2)^\top \beta\big)
+$$
+
+### What This Means
+
+::: fragment
+-   The model describes **relative risk**
+:::
+
+::: fragment
+-   The ratio **does not depend** on time or the baseline hazard
+:::
+
+::: fragment
+> This is the **proportional hazards assumption**
+:::
+
+------------------------------------------------------------------------
+
+## Interpreting Coefficients
+
+Focusing on one covariate $X_j$,
+
+-   $\exp(\beta_j)$ is the *true* **hazard ratio** associated with
+    -   a one unit increase in $X_j$,
+    -   holding other covariates constant.
+
+::: fragment
+### Examples
+
+If $\exp(\beta_j) = 1.5$ $\rightarrow$ 50% higher hazard associated with a one unit increase in $X_j$, holding all other covariates fixed.
+:::
+
+::: fragment
+If $\exp(\beta_j) = 0.7$ $\rightarrow$ 30% lower hazard associated with a one unit increase in $X_j$, accounting for other model covariates.
+:::
+
+::: fragment
+> Interpretation is always in terms of **hazard (risk), not probability**\
+> A hazard ratio compares **risk over time**, not survival probability directly
+:::
+
+------------------------------------------------------------------------
+
+## What Is Assumed?
+
+::: fragment
+1.  Independent observations
+:::
+
+::: fragment
+2.  Independent (non-informative) censoring
+:::
+
+::: fragment
+3.  Correct specification of covariates
+:::
+
+::: fragment
+**4. Proportional Hazards**
+:::
+
+------------------------------------------------------------------------
+
+## Key Assumption: Proportional Hazards
+
+The key assumption is:
+
+$$
+\frac{h(t \mid X_1)}{h(t \mid X_2)} =
+\exp\big((X_1 - X_2)^\top \beta\big)
+$$
+
+::: fragment
+The hazard ratio is **constant over time**.
+:::
+
+::: fragment
+-   If one group has higher risk, it stays higher at all times
+:::
+
+::: fragment
+-   The curves may separate, but they do not cross (in theory)
+:::
+
+::: fragment
+> This is why the model is called **proportional hazards**
+:::
+
+------------------------------------------------------------------------
+
+## What Is NOT Assumed?
+
+::: fragment
+We do **not** assume a specific distribution for survival times.
+:::
+
+::: fragment
+-   Not exponential
+-   Not Weibull
+-   Not normal
+:::
+
+::: fragment
+> The Cox model is **semi-parametric**
+:::
+
+------------------------------------------------------------------------
+
+## Why Is It Called Semi-Parametric?
+
+::: fragment
+The model has two parts:
+
+$$
+h(t \mid X) = h_0(t)\exp(X^\top \beta)
+$$
+:::
+
+::: fragment
+-   $h_0(t)$: Will not estimate (nonparametric)
+-   We do not assume a specific distributional form for the hazard.
+-   $\beta$: Will estimate (parametric)
+:::
+
+------------------------------------------------------------------------
+
+## Why No Intercept?
+
+Suppose we write:
+
+$$
+h(t \mid X) = h_0(t)\exp(\beta_0 + X^\top \beta)
+$$
+
+::: fragment
+We can rewrite this as:
+
+$$
+h(t \mid X) =
+\underbrace{h_0(t)\exp(\beta_0)}_{\text{new baseline hazard}}
+\exp(X^\top \beta)
+$$
+:::
+
+::: fragment
+So:
+
+-   $\beta_0$ gets absorbed into $h_0(t)$
+:::
+
+::: fragment
+> The intercept is not identifiable
+:::
+
+------------------------------------------------------------------------
+
+## Why Don’t We Estimate $h_0(t)$?
+
+Look at the hazard ratio:
+
+$$
+\frac{h(t \mid X_1)}{h(t \mid X_2)}
+=
+\frac{h_0(t)\exp(X_1^\top \beta)}
+     {h_0(t)\exp(X_2^\top \beta)}
+$$
+
+::: fragment
+The baseline hazard cancels:
+
+$$
+=
+\exp\big((X_1 - X_2)^\top \beta\big)
+$$
+:::
+
+::: fragment
+> The model depends only on **relative risk**\
+> We never need to estimate $h_0(t)$ to estimate $\beta$
+:::
+
+::: fragment
+This is what makes the Cox model so powerful
+
+-   No distributional assumptions
+-   Still get interpretable coefficients
+:::
+
+------------------------------------------------------------------------
+
+## From KM to Cox Partial Likelihood
+
+::: fragment
+Recall:
+
+-   Kaplan–Meier: uses **risk sets**
+-   Log-rank: compares **observed vs expected deaths**
+:::
+
+::: fragment
+Cox model focuses on the following question:
+
+> Given that an event occurs at $t_j$, **who in the risk set has the event?**
+:::
+
+::: fragment
+This idea leads directly to the *partial* likelihood (Cox's Idea)
+:::
+
+------------------------------------------------------------------------
+
+## What is a Partial Likelihood? (Cox’s Idea)
+
+::: fragment
+The full likelihood depends on:
+
+$$
+L(\beta, h_0(\cdot))
+$$
+
+-   regression parameters $\beta$
+-   baseline hazard $h_0(t)$ (unknown and not of interest)
+:::
+
+::: fragment
+Cox’s key idea:
+
+> Separate the likelihood into two pieces
+
+$$
+L(\beta, h_0(\cdot)) = L_1(\beta) \cdot L_2(\beta, h_0)
+$$
+:::
+
+::: fragment
+-   $L_1(\beta)$ contains **most of the information about** $\beta$
+-   $L_2(\beta, h_0)$ depends heavily on the unknown baseline hazard
+:::
+
+------------------------------------------------------------------------
+
+## Partial Likelihood
+
+::: fragment
+We focus only on:
+
+$$
+L_1(\beta)
+$$
+:::
+
+::: fragment
+### Key Properties
+
+-   Uses only information at **event times**
+-   Based on **who fails within each risk set**
+-   Does **not require modeling** $h_0(t)$
+:::
+
+::: fragment
+### Important Point
+
+> Partial likelihood is used **only to estimate** $\beta$
+
+-   It is not a full likelihood for the entire survival distribution
+-   But it is sufficient for estimating **hazard ratios**
+:::
+
+------------------------------------------------------------------------
+
+## Intuition of Cox Model
+
+::: fragment
+To recap, Cox model focuses on the following question:
+
+> Given that an event occurs at $t_j$, **who in the risk set has the event?**
+:::
+
+::: fragment
+Multiply those probabilities across all event times:
+
+→ this gives the **partial likelihood**
+:::
+
+::: fragment
+This idea leads directly to the *partial* likelihood (Cox's key idea)
+:::
+
+------------------------------------------------------------------------
+
+## Risk Set
+
+At every event time $t_j$, let
+
+::: fragment
+$$
+n_j = \text{set of individuals at risk at time } t_j
+$$
+:::
+
+::: fragment
+This is the same risk set used in:
+
+-   Kaplan–Meier
+-   Log-rank test
+:::
+
+::: fragment
+For simplicity, we are going to focus on the scenario where all event times are unique.
+
+-   That is, there are no ties between
+:::
+
+------------------------------------------------------------------------
+
+## Probability of an Event
+
+Suppose an individual $i$ dies at time $t_j$.
+
+What is the probability that *this individual* dies at that time?
+
+::: fragment
+$$
+P(i \text{ dies at } t_j)=\frac{h(t_j \mid X_i)}{\sum_{k \in n_j} h(t_j \mid X_k)}
+$$
+:::
+
+------------------------------------------------------------------------
+
+## Plug in the Cox Model
+
+Recall:
+
+$$
+h(t \mid X) = h_0(t)\exp(X^\top \beta)
+$$
+
+::: fragment
+Substitute into the probability:
+
+$$
+P(i \text{ dies at } t_j)=\frac{h(t_j \mid X_i)}{\sum_{k \in n_j} h(t_j \mid X_k)}=
+\frac{h_0(t_j)\exp(X_i^\top \beta)}
+{\sum_{k \in n_j} h_0(t_j)\exp(X_k^\top \beta)}
+$$
+:::
+
+::: fragment
+The baseline hazard cancels:
+
+$$
+P(i \text{ dies at } t_j)=
+\frac{\exp(X_i^\top \beta)}
+{\sum_{k \in n_j} \exp(X_k^\top \beta)}
+$$
+:::
+
+::: fragment
+> This is why we do **not need to estimate** $h_0(t)$
+:::
+
+------------------------------------------------------------------------
+
+## Partial Likelihood
+
+We multiply these probabilities across all event times:
+
+$$
+L(\beta) =
+\prod_j
+\frac{\exp(X_{(j)}^\top \beta)}
+{\sum_{k \in n_j} \exp(X_k^\top \beta)}
+$$
+
+::: fragment
+### What This Means
+
+Each term represents:
+
+> Probability that the observed individual fails at that time
+:::
+
+::: fragment
+Given:
+
+-   everyone who was at risk
+:::
+
+------------------------------------------------------------------------
+
+## How Does Censoring Enter the Partial Likelihood?
+
+::: fragment
+Recall:
+
+$$
+L(\beta) =
+\prod_j
+\frac{\exp(X_{(j)}^\top \beta)}
+{\sum_{k \in n_j} \exp(X_k^\top \beta)}
+$$
+:::
+
+::: fragment
+Only **event times** contribute terms to the likelihood.
+:::
+
+::: fragment
+Censored observations:
+
+-   do **not** create a term in the likelihood\
+-   do **not** appear in the numerator
+:::
+
+------------------------------------------------------------------------
+
+### Where Do Censored Observations Matter?
+
+::: fragment
+They affect the **risk set**:
+
+$$
+n_j = \text{individuals still under observation just before } t_j
+$$
+:::
+
+::: fragment
+-   If someone is censored before $t_j$, they are **removed from** $n_j$
+-   If censored after $t_j$, they are still included
+:::
+
+------------------------------------------------------------------------
+
+### Why This Works
+
+::: fragment
+At each event time, we are asking:
+
+> “Who fails among those still at risk?”
+:::
+
+::: fragment
+Censored individuals:
+
+-   contribute information **up to their censoring time**
+-   then leave the risk set
+:::
+
+::: fragment
+-   Events → contribute to the likelihood\
+-   Censoring → changes the risk set
+:::
+
+::: fragment
+> This is the same idea used in Kaplan–Meier and log-rank
+:::
+
+------------------------------------------------------------------------
+
+## Connection to Log-Rank Test
+
+::: fragment
+Log-rank test:
+
+-   compares observed vs expected deaths
+:::
+
+::: fragment
+Cox model:
+
+-   models probability of who dies at each time
+:::
+
+::: fragment
+> The log-rank test is the **score test from the Cox model**\
+> when the model includes **only a group indicator**
+:::
+
+::: fragment
+With additional covariates:
+
+-   the Cox model generalizes the log-rank test
+-   allowing adjustment for multiple variables
+:::
+
+------------------------------------------------------------------------
+
+## Recap
+
+::: fragment
+The Cox model asks:
+
+> “Given the risk set, who is most likely to fail?”
+:::
+
+::: fragment
+This depends only on:
+
+-   $\exp(X^\top \beta)$
+:::
+
+::: fragment
+Not on:
+
+-   baseline hazard
+:::
+
+------------------------------------------------------------------------
+
+## Why This Is Powerful
+
+::: fragment
+-   No need to model time distribution
+-   Works with censored data
+-   Handles multiple covariates
+:::
+
+::: fragment
+> We get interpretable regression without specifying $h_0(t)$
+:::
+
+------------------------------------------------------------------------
+
+## Comparison of methods
+
+::: fragment
+KM → survival estimation
+
+Log-rank → group comparison
+
+Cox → regression model
+:::
+
+::: fragment
+All three use:
+
+> **risk sets over time**
+:::
+
+------------------------------------------------------------------------
+
+## Example: Cox Model with Lung Data
+
+We now apply the Cox model to real data.
+
+The `lung` dataset contains:
+
+-   `time`: survival time (days)
+-   `status`: 1 = censored, 2 = dead
+-   `ph.ecog`: ECOG performance score rated by the physician
+
+### ECOG performance score
+
+-   `0` = asymptomatic
+-   `1` = symptomatic but completely ambulatory
+-   `2` = in bed less than 50% of the day
+-   `3` = in bed more than 50% of the day but not bedbound
+-   `4` = bedbound (not present in data)
+
+------------------------------------------------------------------------
+
+## Data Preparation
+
+```{r}
+lung_use <- lung %>%
+  mutate(
+    ph.ecog = case_when(
+      ph.ecog %in% c(2, 3) ~ "2-3",
+      ph.ecog == 0 ~ "0",
+      ph.ecog == 1 ~ "1",
+      ph.ecog == 4 ~ "4",
+      TRUE ~ NA_character_
+    ),    
+    event = ifelse(status == 1, 0, 1),
+    sex = ifelse(sex == 1, "Male","Female")
+  ) %>%
+  filter(!is.na(time), !is.na(event), !is.na(ph.ecog))
+```
+
+------------------------------------------------------------------------
+
+## Cox Model (Single Statification Factor)
+
+```{r}
+fit1 <- coxph(Surv(time, event) ~ ph.ecog, data = lung_use)
+summary(fit1)
+```
+
+------------------------------------------------------------------------
+
+## Interpreting Output
+
+::: fragment
+Focus on:
+
+-   $\beta$ → change in log-hazard ratio.
+-   $\exp(\beta)$ → hazard ratio
+:::
+
+::: fragment
+In our example, each coefficient compares a group to the `ph.ecog = 0` **reference level**.
+:::
+
+------------------------------------------------------------------------
+
+## Interpretation Example
+
+::: fragment
+Suppose:
+
+$$
+\exp(\beta) \approx 1.45
+$$
+:::
+
+::: fragment
+Interpretation:
+
+> Individuals w/ `ph.ecog = 1` have **45% higher hazard** than `ph.ecog = 0`.
+:::
+
+::: fragment
+That means:
+
+-   Higher instantaneous risk of death
+-   Lower survival over time
+:::
+
+------------------------------------------------------------------------
+
+## Your Turn (2-3 minutes to answer these)
+
+::: fragment
+-   Interpret $\exp(\widehat\beta)$ for `ph.ecog2-3`
+-   What if I want to know the effect of having `ph.ecog = 2-3`, relative to `ph.ecog = 1` (not the reference group)?
+    -   What should/can we do?
+:::
+
+```{r}
+summary(fit1)
+```
+
+------------------------------------------------------------------------
+
+## Important: Hazard vs Survival
+
+::: fragment
+Hazard ratio:
+
+-   compares **instantaneous risk**
+:::
+
+::: fragment
+It does **not directly give survival probabilities**
+:::
+
+::: fragment
+But:
+
+> Higher hazard → lower survival
+:::
+
+------------------------------------------------------------------------
+
+## Add More Covariates
+
+```{r}
+fit2 <- coxph(Surv(time, event) ~ ph.ecog + age + sex, data = lung_use)
+summary(fit2)
+```
+
+::: fragment
+-   Interpret $\exp(\widehat\beta)$ for `sex` with your neighbor
+-   How would you explain this to a non-statistician?
+:::
+
+------------------------------------------------------------------------
+
+## Interpreting Continuous Variables
+
+::: fragment
+For age:
+
+$$
+\exp(\widehat \beta_{\text{age}}) \approx 1.01
+$$
+:::
+
+::: fragment
+Interpretation:
+
+> Each 1-year increase in age multiplies the hazard by 1.01, holding sex and physician ECOG fixed. → 1% increase in hazard per year
+:::
+
+------------------------------------------------------------------------
+
+## Compare Two Individuals
+
+::: fragment
+Suppose:
+
+-   Person A: age 70\
+-   Person B: age 60
+:::
+
+::: fragment
+Then:
+
+$$
+\frac{h_A(t)}{h_B(t)} =
+\exp(10 \cdot \widehat\beta_{\text{age}}) \approx 1.12
+$$
+:::
+
+::: fragment
+Interpretation:
+
+> A 10-year age difference increases risk by 12%, holding all other variables fixed. That is, it compounds the hazard ratio.
+:::
+
+------------------------------------------------------------------------
+
+## Connection to KM Curves
+
+::: fragment
+In the homework, you will examine and test:
+
+-   KM curves for `ph.ecog`
+:::
+
+::: fragment
+Now:
+
+-   Cox model quantifies those differences
+:::
+
+::: fragment
+> KM shows patterns\
+> Cox explains them
+:::
+
+------------------------------------------------------------------------
+
+## As you do the homework
+
+::: fragment
+Ask:
+
+-   Which group had the worst survival?
+:::
+
+::: fragment
+Check:
+
+-   Does that group have the largest hazard ratio?
+:::
+
+::: fragment
+> This consistency is important
+:::
+
+------------------------------------------------------------------------
+
+## Interpretation Practice w/ more complex model
+
+::: fragment
+Pick one continuous (age, wt.loss in last 6 months) and one categorical (ph.ecog or sex) coefficient from the output.
+:::
+
+::::::: columns
+:::: {.column width="50%"}
+::: fragment
+Write:
+
+-   The hazard ratio
+-   A full sentence interpretation
+:::
+::::
+
+:::: {.column width="50%"}
+::: fragment
+Be precise:
+
+> “Holding other variables constant…”
+:::
+::::
+:::::::
+
+```{r}
+fit3 <- coxph(Surv(time, event) ~ ph.ecog + age + sex +  wt.loss, data = lung_use)
+summary(fit3)
+```
+
+------------------------------------------------------------------------
+
+## Schoenfeld Residuals
+
+::: fragment
+Schoenfeld residuals are used to check the **proportional hazards assumption**.
+
+At each event time, they measure:
+
+> How different the observed covariate value is from what the model expects
+:::
+
+::: fragment
+If the proportional hazards assumption holds:
+
+-   Residuals should show **no trend over time**
+-   They should fluctuate randomly around 0
+:::
+
+::: fragment
+### What would be a problem?
+
+-   Systematic upward or downward trend
+-   Clear pattern over time
+
+> This suggests the effect of a covariate is **changing over time**
+:::
+
+------------------------------------------------------------------------
+
+## What Are Schoenfeld Residual Plots Showing?
+
+::: fragment
+At each event time:
+
+-   Compare an individual's covariate value\
+-   To the **average covariate value in the risk set**
+:::
+
+::: fragment
+This difference is a **Schoenfeld residual**:
+
+> observed − expected (based on the risk set)
+:::
+
+::: fragment
+### Scaled Schoenfeld Residuals
+
+Residuals are scaled by their variability
+
+-   downweight noisy (high-variance) values\
+-   standardize across time
+:::
+
+------------------------------------------------------------------------
+
+## We'll look at plots over time
+
+::: fragment
+The plot shows:
+
+> An estimate of how the coefficient $\beta_j$ changes over time
+:::
+
+::: fragment
+Formally:
+
+$$
+\beta_j(t) \approx \widehat{\beta}_j + \text{scaled residual}
+$$
+:::
+
+### How to Interpret the Plot
+
+::: fragment
+-   Flat line → effect is constant → PH assumption holds
+:::
+
+::: fragment
+-   Trend over time → effect changes → PH violation
+:::
+
+::: fragment
+Example:
+
+-   Strong early effect → weak later effect\
+-   → hazard ratio is not constant
+:::
+
+------------------------------------------------------------------------
+
+## Testing the PH Assumption
+
+We can formally test this using `cox.zph()`:
+
+```{r}
+zph3 <- cox.zph(fit3)
+zph3
+```
+
+::: fragment
+-   Tests whether residuals are correlated with time
+-   Provides:
+    -   a test for each covariate
+    -   a **global test** for the model
+-   Large p-value (e.g., \> 0.05):
+    -   No evidence against proportional hazards
+-   Small p-value:
+    -   Evidence that the PH assumption may be violated
+:::
+
+------------------------------------------------------------------------
+
+## Visual Check
+
+### How to read the plot
+
+-   Each panel = one covariate
+-   Line shows trend over time
+
+Interpretation:
+
+-   Flat line → PH assumption reasonable\
+-   Clear slope → possible violation
+
+```{r}
+plot(zph3)
+```
+
+------------------------------------------------------------------------
+
+## Key Takeaways
+
+::: fragment
+-   Cox model estimates **hazard ratios**
+:::
+
+::: fragment
+-   No need to specify baseline hazard
+:::
+
+::: fragment
+-   Interpretation is always **relative risk**
+:::
+
+::: fragment
+-   Connects directly to KM and log-rank
+:::

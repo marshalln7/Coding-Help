@@ -1,0 +1,216 @@
+---
+title: "Module 5 - Multiple Linear Regression Variable Selection Methods"
+subtitle: <center> <h1>In-Class Analysis<br/>Part 2</h1> </center>
+format: 
+  html:
+    embed-resources: true 
+---
+
+```{=html}
+<style type="text/css">
+h1.title {
+font-size: 40px;
+text-align: center;
+}
+</style>
+```
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggfortify)  # plot glmnet objects using ggplot instead of base R
+library(car)  # needed for VIFs
+library(bestglm)  # for stepwise methods
+library(glmnet)  # for ridge, lasso, and elastic net
+library(GGally)
+set.seed(12345)  # make sure to set your seed when doing cross validation!
+```
+
+## Data and Description
+
+**This is the same data set used in the Module 5 Course Notes.**
+
+Environmental impact studies seek to identify and quantify the affect of environmental conditions on human and ecological health. For example, extreme heat poses a threat to public health by creating conditions conducive to hyperthermia. Likewise, extreme cold poses a threat to public health via conditions suitable to hypothermia. Extreme weather events (tornados, typhoons, etc.) also pose an obvious threat to public health. A less understood environmental variable that, hypothetically, may also pose a threat to public health is the concentration of pollution (air quality).
+
+In an effort to understand the impact of the environment on human health, the data set "EnvironmentalImpacts.txt" (found on Canvas) contains environmental and socio-economic information for 60 different cities in the U.S. The collected variables are given in the table below.
+
+| Variable       | Description                                              |
+|----------------|----------------------------------------------------------|
+| AnnPrecip      | Average annual precipitation                             |
+| MeanJanTemp    | Average January temperature (in degrees Fahrenheit)      |
+| MeanJulyTemp   | Average July temperature (in degrees Fahrenheit)         |
+| PctGT65        | Percent of population greater than 65 years old          |
+| PopPerHouse    | Population per household                                 |
+| School         | Median school years completed                            |
+| PctSound       | Percent of housing units that are "sound"                |
+| PopPerSqMile   | Population per square mile                               |
+| PctNonWhite    | Percent of population that is nonwhite                   |
+| PctWhiteCollar | Percent of employment in white-collar jobs               |
+| PctU20000      | Percent of families with income under \$20,000           |
+| Hydrocarbons   | Relative pollution potential of hydrocarbons             |
+| Nitrogen       | Relative pollution potential of oxides in nitrogen       |
+| SO2            | Relative pollution potential of oxides in sulfur dioxide |
+| RelHumid       | Annual average relative humidity                         |
+| AAMort         | Age-adjusted mortality                                   |
+
+The goal of this analysis is to determine which, if any, of the above environmental and socioeconomic variables contributed to the mortality rate.
+
+We have already compared a few models using cross validation. In this analysis, we will use subset selection and shrinkage methods.
+
+If you haven't already, do the following:
+
+1.  Download the "EnvironmentalImpacts.txt" file from Canvas and put it in the same folder as this quarto file.
+2.  Read in the data set, call it "env", and look at the first few rows.
+
+```{r}
+env <- read.table("EnvironmentalImpacts.txt",header = TRUE)[,-1] # [,-1] removes the first column of this dataset that identifies rows
+head(env)
+```
+
+## Explore the data: create a scatterplot matrix, correlation matrix, etc.
+
+Tools: plot(), pairs(), cor(), corrplot(). My favorite is ggpairs() from the GGally package.
+
+```{r, fig.align='center'}
+corrplot::corrplot(cor(env))
+```
+
+```{r}
+ggpairs(env)
+```
+
+## Fit a multiple linear regression model using all variables in the data set. Look at a summary of the results, and compute VIFs.
+
+```{r, fig.align='center'}
+full_mod <- lm(AAMort ~ ., data = env)
+summary(full_mod)
+vif(full_mod)
+vif(full_mod) |> max()
+vif(full_mod) |> mean()
+```
+
+Since the max VIF is greater than 10 and the mean is greater than 5, it definitely appears that multicollinearity will be a problem for this model.
+
+## We now want to apply variable selection procedures.
+
+### Start by checking all possible subsets ("best subsets" method) of the full model you created above. Use the BIC as the selection criteria. Which model is the "best"? Which model is the second "best"? What is the difference between the top two models?
+
+We will use the `bestglm` package/function (you could also use the `regsubsets` function from the `leaps` package). Note that the response variable must be the last column in the data set for `bestglm` to work.
+
+You can see which variables were included in the top 5 (or whatever number you set for the `TopModels` argument, defaults to 5) best models using `best_subsets_bic$BestModels`. You can also see the model summary output for the single best model using `summary(best_subsets_bic$BestModel)`. You could save `best_subsets_bic$BestModel` as a variable for later use (i.e. when checking assumptions).
+
+```{r, fig.align='center'}
+best_subsets_bic <- bestglm(env,
+                            IC = "BIC",
+                            method = "exhaustive")
+
+# view variables included in the top 10 models
+best_subsets_bic$BestModels
+
+# view a summary of the "best" model
+summary(best_subsets_bic$BestModel)
+```
+
+### Next, we demonstrate forward selection, though it is not generally recommended. We will use the AIC as the selection criteria. Which model is the "best"? What was the path of the variable selection (i.e., which variable was added first, then second, third, etc.)?
+
+Uncomment the following code to perform forward, backward, and stepwise selection.
+
+```{r, fig.align='center'}
+base_mod <- lm(AAMort ~ 1, data = env) # Intercept only model (null model, or base model)
+full_mod <- lm(AAMort ~ ., data = env) # All predictors in model (besides response)
+n <- nrow(env)
+
+forw_AIC <- step(base_mod, # starting model for algorithm
+     direction = "forward",
+     scope = list(lower = base_mod, upper = full_mod))
+
+# the following code performs backward selection using BIC
+back_BIC <- step(full_mod, # starting model for algorithm
+direction = "backward",
+k = log(n), # use BIC penalty
+scope = list(lower = base_mod, upper = full_mod))
+
+# the following code performs both forward and backward selection using BIC
+step_BIC <- step(base_mod, # starting model for algorithm (can start at base or full)
+direction = "both",
+k = log(n), # use BIC penalty
+scope = list(lower = base_mod, upper = full_mod))
+```
+
+## We will now apply shrinkage methods.
+
+### Start by applying ridge regression (just for illustration - this isn't a variable selection procedure since no variables will drop out of the model) to a model with ALL covariates included.
+
+We will use the `glmnet` package/function. Note that the data must be a matrix, not a dataframe.
+
+```{r, fig.align='center'}
+env_x <- as.matrix(env[, 1:15]) # predictors
+env_y <- env[, 16] # response
+
+# use cross validation to pick the "best" (based on MSE) lambda
+env_ridge_cv <- cv.glmnet(x = env_x, # automatically includes a column of ones for the intercept FYI
+                          y = env_y, 
+                          type.measure = "mse", 
+                          alpha = 0)  # 0 is code for "ridge regression"
+
+# plot (log) lambda vs MSE
+autoplot(env_ridge_cv, label = FALSE) +
+  theme_bw() +
+  theme(aspect.ratio = 1)
+
+# lambda.min: value of lambda that gives minimum mean cross-validated error
+env_ridge_cv$lambda.min
+# lambda.1se: value of lambda within 1 standard error of the minimum 
+# cross-validated error
+env_ridge_cv$lambda.1se
+
+coef(env_ridge_cv, s = "lambda.min")
+coef(env_ridge_cv, s = "lambda.1se")
+```
+
+### Now apply LASSO to a model with ALL covariates included.
+
+Hint: same code as above, except you need to set `alpha = 1` instead of `alpha = 0`.
+
+```{r, fig.align='center'}
+env_x <- as.matrix(env[, 1:15]) # predictors
+env_y <- env[, 16] # response
+
+# use cross validation to pick the "best" (based on MSE) lambda
+env_lasso_cv <- cv.glmnet(x = env_x, # automatically includes a column of ones for the intercept FYI
+                          y = env_y, 
+                          type.measure = "mse", 
+                          alpha = 1)  # 1 is code for "lasso"
+
+# plot (log) lambda vs MSE
+autoplot(env_lasso_cv, label = FALSE) +
+  theme_bw() +
+  theme(aspect.ratio = 1)
+
+# lambda.min: value of lambda that gives minimum mean cross-validated error
+env_lasso_cv$lambda.min
+# lambda.1se: value of lambda within 1 standard error of the minimum 
+# cross-validated error
+env_lasso_cv$lambda.1se
+
+coef(env_lasso_cv, s = "lambda.min")
+coef(env_lasso_cv, s = "lambda.1se")
+```
+
+### You can also apply the elastic net method by using `alpha = 0.5`.
+
+### Now that you have seen the various results from the different methods, choose a model to proceed. Then check model assumptions.
+
+If you choose best subsets, fit a multiple regression model with the selected variables. If you choose a shrinkage procedure, use that model.
+
+There is no "one right answer" for this. Suppose we chose the LASSO model with cross-validated PMSE one standard error above the minimum.
+
+```{r, fig.align='center'}
+fitted_values <- predict(env_lasso_cv, # this is the model object saved from cv.glmnet()
+                          newx = env_x, s = "lambda.1se")
+resids <-  # manually calculate residuals
+# create a few diagnostic plots
+```
+
+## Summary and Conclusions
+
+Multicollinearity is a common problem for linear models, and it is important that it is addressed to avoid the many pitfalls that arise (such as inflated standard errors). We performed several variable selection procedures to try to eliminate multicollinearity, which would also help us avoid overfitting. Ultimately, there is no "right" answer as to which variables should be included. There are many acceptable models, and there are certainly many bad models, but there is no one correct model. In general, it is good to run several procedures and look for similarities in the variables included.

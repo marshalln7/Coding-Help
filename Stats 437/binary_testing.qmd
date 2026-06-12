@@ -1,0 +1,907 @@
+---
+title: "Binary Outcomes I: 2×2 Tables and Tests"
+subtitle: "Stat 437"
+author: "Philip White"
+format:
+  revealjs:
+    slide-number: true
+    incremental: true
+    theme: serif
+    css: slides.css
+    scrollable: true
+execute:
+  echo: true
+  warning: false
+  message: false
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+## Lecture Goals
+
+In this lecture we will:
+
+-   Discuss the 2×2 table\
+-   Derive expected counts under independence\
+-   Derive and compute Pearson’s chi-square test\
+-   Discuss Yates continuity correction\
+-   Derive the Wald test for $\log(OR)$\
+-   Derive Fisher’s exact test probability\
+-   Connect these tests conceptually to logistic regression
+
+These notes are designed so you can compute everything by hand.
+
+------------------------------------------------------------------------
+
+## The 2×2 Table
+
+Observed counts:
+
+|              | $Y=1$ | $Y=0$ | Row total |
+|-------------:|:-----:|:-----:|:---------:|
+|        $X=1$ |  $a$  |  $b$  |   $a+b$   |
+|        $X=0$ |  $c$  |  $d$  |   $c+d$   |
+| Column total | $a+c$ | $b+d$ |    $n$    |
+
+Total sample size:
+
+$$n = a+b+c+d$$
+
+Risks:
+
+$$\widehat p_1 = \frac{a}{a+b}, \quad \widehat p_0 = \frac{c}{c+d}$$
+
+Odds ratio:
+
+$$\widehat{OR} = \frac{a d}{b c}$$
+
+------------------------------------------------------------------------
+
+## The RHC Dataset: Hello Darkness, My Old Friend
+
+The RHC dataset comes from an observational study of critically ill
+patients.
+
+-   Exposure ($X$): Right Heart Catheterization (RHC)
+
+-   $X = 1$ → patient received RHC
+
+-   $X = 0$ → patient did not receive RHC
+
+-   Outcome ($Y$): In-hospital survival
+
+-   $Y = 1$ → died
+
+-   $Y = 0$ → survived
+
+------------------------------------------------------------------------
+
+## Why is this dataset interesting?
+
+-   RHC is an invasive monitoring procedure used in ICU settings.
+
+-   Key question:
+
+> Does RHC increase mortality?\
+> Or are sicker patients more likely to receive RHC?
+
+-   This is an **observational dataset**, not randomized.
+
+-   That means:
+
+-   Treatment assignment was not random
+
+-   Patients receiving RHC may differ systematically from others
+
+-   Naive comparisons may reflect confounding
+
+------------------------------------------------------------------------
+
+## For Today
+
+In this lecture, we will:
+
+-   Ignore confounding temporarily
+-   Treat this as a simple 2×2 problem
+-   Test for association between RHC and death
+
+Later lectures will revisit this dataset to adjust for confounding.
+
+------------------------------------------------------------------------
+
+## Worked Example: RHC Dataset
+
+|              | $Y=1$ | $Y=0$ | Row total |
+|-------------:|:-----:|:-----:|:---------:|
+|        $X=1$ |  $a$  |  $b$  |   $a+b$   |
+|        $X=0$ |  $c$  |  $d$  |   $c+d$   |
+| Column total | $a+c$ | $b+d$ |    $n$    |
+
+```{r}
+library(ATbounds)   # RHC dataset
+data(RHC)
+
+tab_raw <- table(RHC$RHC, RHC$survival)
+
+tab <- tab_raw[c("1","0"), c("1","0")]
+rownames(tab) = c("X = 1", "X = 0")
+colnames(tab) = c("Y = 1", "Y = 0")
+
+tab
+
+a <- tab[1,1]
+b <- tab[1,2]
+c <- tab[2,1]
+d <- tab[2,2]
+n <- sum(tab)
+```
+
+------------------------------------------------------------------------
+
+## Null Hypothesis Statements
+
+We test:
+
+$$H_0: P(Y=1 \mid X=1) = P(Y=1 \mid X=0)$$
+
+$$H_0: \textrm{Is the probability of survival the same with and without RHC?}$$
+
+Equivalent formulations:
+
+$$p_1 = p_0$$
+
+$$OR = 1$$
+
+$$\log(OR) = 0$$
+
+$$P(X,Y) = P(X)P(Y)$$
+
+All procedures in this lecture test this same null.
+
+------------------------------------------------------------------------
+
+## The Stat 121 Approaches
+
+-   Two-sample Proportion Test
+-   $\chi$-squared Test for Independence
+
+------------------------------------------------------------------------
+
+## The Two-Sample Proportion Test
+
+|              | $Y=1$ | $Y=0$ | Row total |
+|-------------:|:-----:|:-----:|:---------:|
+|        $X=1$ |  $a$  |  $b$  |   $a+b$   |
+|        $X=0$ |  $c$  |  $d$  |   $c+d$   |
+| Column total | $a+c$ | $b+d$ |    $n$    |
+
+Suppose we observe two independent samples:
+
+-   Group 1: $n_1 = a+b$ observations, with $a$ successes\
+
+-   Group 0: $n_0 = c+d$ observations, with $c$ successes
+
+-   Sample proportions:
+    $$\widehat{p}_1= \frac{a}{a + b}= \frac{a}{n_1}, \qquad 
+    \widehat{p}_0 = \frac{c}{c + d}= \frac{c}{n_0}$$
+
+------------------------------------------------------------------------
+
+### Null Hypothesis
+
+$$
+H_0: p_1 = p_0
+$$
+
+Under $H_0$, both groups share a common probability:
+
+$$
+p = p_1 = p_0
+$$
+
+We estimate this common probability using the pooled estimator:
+
+$$
+\widehat{p} = \frac{a + c}{a + b + c + d} = \frac{a + c}{n_0 + n_1} = \frac{a + c}{n}
+$$
+
+For later,
+
+\begin{align*}
+n\widehat{p} &= a + c \\
+n\left(1 - \widehat{p}\right) &= b + d \\
+\end{align*}
+
+------------------------------------------------------------------------
+
+### Variance Under the Null
+
+Under $H_0$, the variance of the difference in sample proportions is:
+
+$$
+\mathrm{Var}(\widehat p_1 - \widehat p_0)
+=
+\widehat p (1-\widehat p)
+\left(
+\frac{1}{n_1} + \frac{1}{n_0}
+\right)
+$$
+
+-   This uses the pooled estimate because we are assuming $p_1 = p_0$
+    under the null.
+
+-   So, the standard error is
+
+$$
+\mathbb{SE}(\widehat p_1 - \widehat p_0)
+=
+\left(\widehat p (1-\widehat p)
+\left(
+\frac{1}{n_1} + \frac{1}{n_0}
+\right)\right)^{1/2}
+$$
+
+------------------------------------------------------------------------
+
+### Test Statistic
+
+$$
+Z =
+\frac{\widehat p_1 - \widehat p_0}
+{\left(
+\widehat p(1-\widehat p)
+\left(
+\frac{1}{n_1} + \frac{1}{n_0}
+\right)
+\right)^{1/2}}
+$$
+
+Under $H_0$ and large samples:
+
+$$
+Z \sim N(0,1)
+$$
+
+Two-sided p-value:
+
+$$
+p = 2(1-\Phi(|Z|))
+$$
+
+------------------------------------------------------------------------
+
+### Confidence Interval for $p_1 - p_0$
+
+For confidence intervals (not testing), it's more common to use the
+**unpooled variance**:
+
+$$
+SE(\widehat p_1 - \widehat p_0)
+=
+\left(
+\frac{\widehat p_1(1-\widehat p_1)}{n_1}
++
+\frac{\widehat p_0(1-\widehat p_0)}{n_0}
+\right)^{1/2}
+$$
+
+95% CI:
+
+$$
+(\widehat p_1 - \widehat p_0)
+\pm
+1.96 \cdot SE(\widehat p_1 - \widehat p_0)
+$$
+
+Note the important distinction:
+
+-   **Test** uses pooled variance\
+-   **Confidence interval** uses unpooled variance
+
+------------------------------------------------------------------------
+
+## Expected Counts Under Independence
+
+Under independence:
+
+$$P(X=i, Y=j) = P(X=i)P(Y=j)$$
+
+Expected counts:
+
+$$E_{11} = \frac{(a+b)(a+c)}{n}$$
+
+$$E_{12} = \frac{(a+b)(b+d)}{n}$$
+
+$$E_{21} = \frac{(c+d)(a+c)}{n}$$
+
+$$E_{22} = \frac{(c+d)(b+d)}{n}$$
+
+These preserve row and column totals.
+
+------------------------------------------------------------------------
+
+## Pearson Chi-Square Statistic
+
+$$\chi^2 = \sum \frac{(O - E)^2}{E}$$
+
+Explicitly:
+
+\begin{align*}
+\chi^2 &=
+\frac{\left(a-E_{11}\right)^2}{E_{11}} +
+\frac{\left(b-E_{12}\right)^2}{E_{12}} +
+\frac{\left(c-E_{21}\right)^2}{E_{21}} +
+\frac{\left(d-E_{22}\right)^2}{E_{22}} \\
+& = \frac{n(ad - bc)^2}{(a+b)(c+d)(a+c)(b+d)} \tag{1}.
+\end{align*}
+
+That second simplification takes "a bit" of algebra.
+
+Under $H_0$:
+
+$$\chi^2 \sim \chi^2_1$$
+
+------------------------------------------------------------------------
+
+## Using Pearson Chi-Square Statistic
+
+Interpretation:
+
+-   If observed counts are close to expected counts → small $\chi^2$
+-   If observed counts differ substantially from expected → large
+    $\chi^2$
+-   Reject $H_0$ when $\chi^2$ exceeds critical value
+
+Rule of thumb:
+
+-   Expected counts should be $\geq 5$ in each cell for reliable
+    approximation.
+
+------------------------------------------------------------------------
+
+## A Few Preliminaries
+
+-   Note,
+    $\widehat p_1 - \widehat p_0= \frac{a}{a+b} - \frac{c}{c+d}= \frac{a(c+d) - c(a+b)}{(a+b)(c+d)}= \frac{ad - bc}{(a+b)(c+d)}.$
+
+-   So, $ad - bc = (\widehat p_1 - \widehat p_0)(a+b)(c+d).$
+
+-   Also,
+    $\frac{1}{a+b} + \frac{1}{c+d} = \frac{(a+b) + (c+d)}{(a+b)(c+d)}= \frac{n}{(a+b)(c+d)}.$
+
+-   This implies that
+    $\frac{(a+b)(c+d)}{n} = \frac{1}{\dfrac{1}{a+b} + \dfrac{1}{c+d}} = \frac{1}{\dfrac{1}{n_1} + \dfrac{1}{n_0}}.$
+
+------------------------------------------------------------------------
+
+## Equivalence to the Two-Proportion Z-Test
+
+\begin{align*}
+\chi^2 &= \frac{n(ad - bc)^2}{(a+b)(c+d)(a+c)(b+d)}  &\\
+&= \frac{n\left((\widehat p_1 - \widehat p_0)(a+b)(c+d)\right)^2}{(a+b)(c+d)(a+c)(b+d)}  & \textrm{from preliminaries}\\
+&= \frac{n(\widehat p_1 - \widehat p_0)^2 (a+b)(c+d)}{(a+c)(b+d)}  & \textrm{by cancellation}\\
+&= \frac{n(\widehat p_1 - \widehat p_0)^2 (a+b)(c+d)}{n\widehat{p} n(1 - \widehat{p})}  & \textrm{from Null Hypothesis slide} \\
+&= \frac{(\widehat p_1 - \widehat p_0)^2 (a+b)(c+d)}{n\widehat{p}(1 - \widehat{p})}  & \textrm{from Null Hypothesis slide} \\
+&= \frac{(\widehat p_1 - \widehat p_0)^2}{\widehat{p}(1 - \widehat{p}) \left(\dfrac{1}{n_1} + \dfrac{1}{n_0}\right) }  & \textrm{from preliminaries} \\
+&= Z^2 & \textrm{from Test Statistic Slide}\\
+\end{align*}
+
+------------------------------------------------------------------------
+
+## Who Cares? Why This Equivalence Matters
+
+We just showed:
+
+$$\chi^2 = Z^2$$
+
+in the 2×2 case.
+
+What does this mean?
+
+------------------------------------------------------------------------
+
+## Proportion Test in `R`
+
+-   
+
+```{r}
+tab
+
+prop.test(tab,correct = FALSE)
+```
+
+------------------------------------------------------------------------
+
+## Yates Continuity Correction
+
+For 2×2 tables, Pearson’s statistic may overstate evidence when counts
+are small.
+
+Yates correction adjusts:
+
+$$\chi^2_Y = \sum \frac{(|O - E| - 0.5)^2}{E}$$
+
+This reduces type I error in small samples.
+
+In R:
+
+-   `prop.test()` uses Yates correction by default.
+-   Set `correct = FALSE` to match Pearson exactly.
+
+------------------------------------------------------------------------
+
+## Proportion Test in `R` w/ Yates Correction
+
+```{r}
+tab
+
+prop.test(tab)
+```
+
+------------------------------------------------------------------------
+
+## Wald Test for $\log(OR)$ — Why Work on the Log Scale?
+
+We work on the log scale because:
+
+-   The sampling distribution of $\log(\widehat{OR})$ is approximately
+    normal.
+-   The log transformation makes the distribution more symmetric.
+-   The delta method, which you probably aren't familiar with, gives a
+    simple variance formula.
+
+Estimator:
+
+$$
+\widehat{\log OR} = \log\left(\frac{a d}{b c}\right)
+$$
+
+------------------------------------------------------------------------
+
+### Standard Error (Delta Method)
+
+Approximate standard error:
+
+$$
+SE(\widehat{\log OR}) =
+\left(
+\frac{1}{a} + \frac{1}{b} + \frac{1}{c} + \frac{1}{d}
+\right)^{1/2}
+$$
+
+Where does this come from?
+
+-   The cell counts are approximately binomial.
+-   We apply the delta method to the function $\log(ad/bc)$.
+-   Delta Method: Compute the variance of the Taylor series expansion.
+-   Variances of independent counts add.
+
+Important:
+
+> -   This approximation works well when all cell counts are reasonably
+>     large.
+
+-   If any of $a,b,c,d$ are small, the Wald approximation may be
+    unstable.
+
+------------------------------------------------------------------------
+
+## Wald Test for $\log(OR)$ — Inference and Interpretation
+
+Wald statistic:
+
+$$
+Z = \frac{\widehat{\log OR}}{SE(\widehat{\log OR})}
+$$
+
+Under $H_0$ (large samples):
+
+$$
+Z \sim N(0,1)
+$$
+
+Two-sided p-value:
+
+$$
+p = 2(1-\Phi(|Z|))
+$$
+
+------------------------------------------------------------------------
+
+### Confidence Interval
+
+95% CI on log odds scale:
+
+$$
+\widehat{\log OR} \pm 1.96 \cdot SE(\widehat{\log OR})
+$$
+
+Exponentiate to obtain CI for OR:
+
+$$
+\exp\left(
+\widehat{\log OR} \pm 1.96 \cdot SE(\widehat{\log OR})
+\right)
+$$
+
+### Interpretation
+
+-   If the CI for OR excludes 1 → statistically sig nificant.
+-   If OR \> 1 → exposure associated with higher odds of outcome.
+-   If OR \< 1 → exposure associated with lower odds.
+
+------------------------------------------------------------------------
+
+## Logistic Regression Connection
+
+Model:
+
+\begin{align*}
+\log\left(
+\frac{P(Y=1 | X = x)}{1-P(Y=1| X = x)}
+\right) &= \beta_0 + \beta_1 x \\
+\end{align*}
+
+-   For binary $X$: $$\beta_1 = \log(OR)$$
+
+-   Testing: $$H_0: \beta_1 = 0$$
+
+-   We will flesh this out in future lectures.
+
+-   I generally think this is cleaner than a Wald Test alone
+
+-   The Wald test can be used within logistic regression.
+
+------------------------------------------------------------------------
+
+## The Score (Rao) Test in Logistic Regression
+
+In logistic regression, we test:
+
+$$
+H_0: \beta_1 = 0
+$$
+
+There are three common large-sample tests:
+
+-   **Wald test** — uses $\widehat{\beta}_1$ and its estimated standard
+    error\
+-   **Likelihood ratio test (LRT)** — compares full vs reduced models\
+-   **Score (Rao) test** — evaluates the slope of the log-likelihood at
+    the null
+
+------------------------------------------------------------------------
+
+### What is the Score Test?
+
+The score test asks:
+
+> If the null model ($\beta_1 = 0$) were true, how steeply does the
+> log-likelihood increase if we move away from 0?
+
+It only requires fitting the **null model**.
+
+The statistic has the general form (Details beyond scope of class):
+
+$$
+S = \frac{U(0)^2}{I(0)}
+$$
+
+where:
+
+-   $U(0)$ = score (first derivative of log-likelihood) at $\beta_1 = 0$
+-   $I(0)$ = Fisher information at $\beta_1 = 0$
+
+------------------------------------------------------------------------
+
+## Another Equivalence
+
+In the 2×2 case:
+
+-   The logistic regression score test
+-   The Pearson chi-square test
+
+are algebraically equivalent.
+
+------------------------------------------------------------------------
+
+## Fisher’s Exact Test — Why Do We Need It?
+
+Pearson’s chi-square test or the two-proportion $z$-test relies on a
+large-sample approximation:
+
+$$
+\chi^2 \sim \chi^2_1 \quad \text{(approximately)}
+$$
+
+This approximation works well when:
+
+-   Expected counts in each cell are reasonably large (rule of thumb: ≥
+    5)  
+-   Sample size is moderate to large
+
+When counts are small:
+
+-   The chi-square approximation may inflate type I error.
+-   The Wald confidence interval for the odds ratio can be unstable
+
+Fisher’s exact test avoids asymptotics entirely.
+
+It computes the **exact sampling distribution** under the null.
+
+------------------------------------------------------------------------
+
+## Fisher’s Exact Test — The Hypergeometric Distribution
+
+|              | $Y=1$ | $Y=0$ | Row total |
+|-------------:|:-----:|:-----:|:---------:|
+|        $X=1$ |  $a$  |  $b$  |   $a+b$   |
+|        $X=0$ |  $c$  |  $d$  |   $c+d$   |
+| Column total | $a+c$ | $b+d$ |    $n$    |
+
+-   Fisher’s test conditions on row and column totals
+
+-   Given fixed margins, the only random quantity is the cell count $a$.
+
+-   Under the null hypothesis of independence ($P(X,Y) = P(X)P(Y)$): $$
+    P(a) =
+    \frac{\binom{a+b}{a}\binom{c+d}{c}}
+    {\binom{n}{a+c}}
+    $$
+
+-   This is the hypergeometric probability:
+
+-   From $n$ total observations,
+
+-   $a+c$ are "successes" (Y = 1),
+
+-   We draw $a+b$ observations (X = 1),
+
+-   The probability that exactly $a$ of them are successes is given by
+    the expression above.
+
+-   No approximations are used.
+
+------------------------------------------------------------------------
+
+## Fisher’s Exact Test — Computing the P-value
+
+-   The exact p-value is computed by:
+
+1.  Enumerating all possible 2×2 tables with the same margins.
+2.  Computing the hypergeometric probability for each possible table.
+3.  Summing the probabilities of tables that are:
+
+-   As extreme or more extreme than the observed table.
+
+-   For a two-sided test: $$
+    p = \sum_{\text{tables with } P \le P_{\text{observed}}} P(\text{table})
+    $$
+
+-   Important properties:
+
+    -   Exact test — no large-sample assumptions
+    -   Valid even with very small counts
+    -   Often conservative (p-values slightly larger than asymptotic
+        tests)
+
+------------------------------------------------------------------------
+
+## Fisher’s Exact Test — What Does “More Extreme” Mean?
+
+Suppose the margins are fixed as follows:
+
+|       | Y = 1 | Y = 0 | Row Total |
+|-------|-------|-------|-----------|
+| X = 1 | a     | b     | 5         |
+| X = 0 | c     | d     | 5         |
+| Total | 4     | 6     | 10        |
+
+So:
+
+-   $n = 10$
+-   $a+b = 5$
+-   $c+d = 5$
+-   $a+c = 4$
+
+Under the null of independence, the only random quantity is $a$.
+
+------------------------------------------------------------------------
+
+### Step 1: Enumerate All Possible Tables
+
+Since $a$ cannot exceed the margins:
+
+$$
+a \in \{0,1,2,3,4\}
+$$
+
+Each value of $a$ determines the entire table.
+
+------------------------------------------------------------------------
+
+### Compute Hypergeometric Probabilities (Exact Values) {.smaller}
+
+Recall:
+
+$$
+P(a) =
+\frac{\binom{5}{a}\binom{5}{4-a}}
+{\binom{10}{4}}
+$$
+
+Compute for each possible $a$:
+
+| $a$ | Interpretation | Probability |
+|------------------------|------------------------|------------------------|
+| 0 | all successes in X=0 | $\dfrac{\binom{5}{0}\binom{5}{4}}{\binom{10}{4}} =$ `r choose(5,0)*choose(5,4)/choose(10,4)` |
+| 1 | mostly in X=0 | $\dfrac{\binom{5}{1}\binom{5}{3}}{\binom{10}{4}} =$ `r choose(5,1)*choose(5,3)/choose(10,4)` |
+| 2 | roughly balanced | $\dfrac{\binom{5}{2}\binom{5}{2}}{\binom{10}{4}} =$ `r choose(5,2)*choose(5,2)/choose(10,4)` |
+| 3 | mostly in X=1 | $\dfrac{\binom{5}{3}\binom{5}{1}}{\binom{10}{4}} =$ `r choose(5,3)*choose(5,1)/choose(10,4)` |
+| 4 | all successes in X=1 | $\dfrac{\binom{5}{4}\binom{5}{0}}{\binom{10}{4}} =$ `r choose(5,4)*choose(5,0)/choose(10,4)` |
+
+------------------------------------------------------------------------
+
+### What Do We Notice?
+
+-   The distribution is symmetric around $a=2$.
+-   The most likely table is $a=2$ (balanced).
+-   The least likely tables are $a=0$ and $a=4$ (most extreme).
+
+If the observed table has $a=4$, the two-sided p-value is:
+
+$$
+P(a=4) + P(a=0)
+$$
+
+which equals:
+
+`r choose(5,4)*choose(5,0)/choose(10,4) + choose(5,0)*choose(5,4)/choose(10,4)`
+
+------------------------------------------------------------------------
+
+### Step 3: Identify “More Extreme” Tables
+
+Suppose the observed value is $a = 4$.
+
+That corresponds to strong association (almost all successes in X=1).
+
+For a two-sided test:
+
+-   We include any table with probability $$
+    P(\text{table}) \le P(a=4)
+    $$
+
+These will be the most imbalanced tables: - $a = 4$ - $a = 0$ (mirror
+extreme)
+
+------------------------------------------------------------------------
+
+### Step 4: Compute the Two-Sided P-value
+
+$$
+p = P(a=4) + P(a=0)
+$$
+
+We are summing the probabilities of tables that are as rare or rarer
+than the observed table.
+
+------------------------------------------------------------------------
+
+### Key Insight
+
+“More extreme” does **not** mean:
+
+-   Larger difference in proportions only.
+
+It means:
+
+> Smaller hypergeometric probability under the null.
+
+Fisher’s exact test orders tables by their probability under $H_0$.
+
+## Fisher’s Exact Test in `R`
+
+In R:
+
+```{r}
+fisher.test(tab)
+```
+
+returns:
+
+-   Exact p-value
+-   Conditional maximum likelihood estimate of the odds ratio
+-   Exact confidence interval
+
+------------------------------------------------------------------------
+
+## Final Summary
+
+All methods test:
+
+$$H_0: OR = 1$$
+
+Differences arise from:
+
+-   Asymptotic vs exact inference\
+-   Wald vs score vs likelihood ratio approximations\
+-   Continuity corrections
+
+Next lecture: stratified tables and CMH → multivariable logistic
+regression.
+
+------------------------------------------------------------------------
+
+## Compute Everything
+
+```{r}
+# Risks
+p1_hat <- a/(a+b)
+p0_hat <- c/(c+d)
+RD_hat <- p1_hat - p0_hat
+
+# sample sizes
+n1 <- a + b
+n0 <- c + d
+
+se_rd <- sqrt( p1_hat*(1 - p1_hat)/n1 + p0_hat*(1 - p0_hat)/n0 )
+z_crit <- qnorm(0.975)
+RD_CI_lower <- RD_hat - z_crit * se_rd
+RD_CI_upper <- RD_hat + z_crit * se_rd
+
+# OR
+OR_hat <- (a*d)/(b*c)
+
+# Expected counts
+E11 <- (a+b)*(a+c)/n
+E12 <- (a+b)*(b+d)/n
+E21 <- (c+d)*(a+c)/n
+E22 <- (c+d)*(b+d)/n
+
+# Pearson chi-square
+chi2 <- (a-E11)^2/E11 + (b-E12)^2/E12 +
+  (c-E21)^2/E21 + (d-E22)^2/E22
+p_chi2 <- 1 - pchisq(chi2, df=1)
+
+# Wald OR CI
+logOR_hat <- log(OR_hat)
+SE_logOR <- sqrt(1/a + 1/b + 1/c + 1/d)
+Z_wald <- logOR_hat/SE_logOR
+p_wald <- 2*(1 - pnorm(abs(Z_wald)))
+
+CI_lower <- exp(logOR_hat - 1.96*SE_logOR)
+CI_upper <- exp(logOR_hat + 1.96*SE_logOR)
+
+
+
+list(
+  RD_hat = RD_hat,
+  RD_CI = c(RD_CI_lower, RD_CI_upper),
+  OR_hat = OR_hat,
+  OR_CI = c(CI_lower, CI_upper),
+  chi2 = chi2,
+  p_chi2 = p_chi2,
+  Z_wald = Z_wald,
+  p_wald = p_wald
+)
+
+```
+
+------------------------------------------------------------------------
+
+## Confirm With R Built-Ins
+
+```{r}
+prop.test(c(a,c), c(a+b, c+d), correct=FALSE)
+prop.test(c(a,c), c(a+b, c+d), correct=TRUE)  
+
+fisher.test(tab)
+
+fit <- glm(survival ~ RHC, data=RHC, family=binomial)
+summary(fit)
+exp(confint(fit))
+
+anova(fit,test = "Rao") ## Note p-value is equivalent to prop.test.
+```

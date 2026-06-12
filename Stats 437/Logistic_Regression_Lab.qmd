@@ -1,0 +1,626 @@
+---
+title: "Coding Lab: Interactions, Nonlinearity, and Model Comparison"
+subtitle: "Preparing for Mini-Project #2"
+author: "Philip White"
+format:
+  revealjs:
+    slide-number: true
+    incremental: true
+    theme: serif
+    css: slides.css
+    scrollable: true
+execute:
+  echo: true
+  warning: false
+  message: false
+  fig-height: 4
+  fig-width: 6
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(splines)
+library(ATbounds)
+library(patchwork)
+
+data(RHC)
+
+selected_vars <- c(
+  "survival",
+  "RHC",
+  "age",
+  "aps1",
+  "surv2md1",
+  "pafi1",
+  "dnr1_Yes",
+  "das2d3pc",
+  "chfhx",
+  "sex_Female",
+  "temp1"
+)
+
+RHC_use <- RHC[, selected_vars]
+
+RHC_use <- RHC_use %>%
+  mutate(survival = as.integer(as.character(survival)))
+```
+
+------------------------------------------------------------------------
+
+## Lab Goals
+
+Today we will discuss:
+
+1.  How we compare models using:
+    -   Likelihood ratio tests (`anova`)
+    -   AIC / BIC
+2.  Discuss why cross-validation is ideal — but why we’ll approximate with AIC/BIC.
+3.  Explore interactions in logistic regression.
+4.  Explore nonlinear effects using `poly()`, `bs()`, and `ns()`.
+
+This is group-based and exploratory. There is no single correct model.
+
+------------------------------------------------------------------------
+
+## Baseline Model
+
+Start with a simple additive logistic model.
+
+```{r}
+fit_base <- glm(survival ~ RHC + age + aps1 + surv2md1 + pafi1 +
+                  dnr1_Yes + das2d3pc + chfhx + sex_Female + temp1,
+                data = RHC_use,
+                family = binomial)
+
+summary(fit_base)
+# AIC(fit_base)
+# BIC(fit_base)
+```
+
+------------------------------------------------------------------------
+
+# Likelihood Ratio Test (LRT)
+
+Used to compare **nested models**:
+
+-   Reduced model: $M_0$
+-   Full model: $M_1$ (adds parameters)
+
+Test statistic:
+
+$$
+\Lambda = -2 \left[ \ell(M_0) - \ell(M_1) \right]
+$$
+
+Under $H_0$:
+
+$$
+\Lambda \sim \chi^2_{df}
+$$
+
+where $df =$ number of additional parameters.
+
+------------------------------------------------------------------------
+
+## LRT in Logistic Regression
+
+Example:
+
+```{r}
+# anova(nested_model, full_model, test = "LRT")
+# anova(nested_model, full_model, test = "Chisq") ### equivalent test
+
+```
+
+Interpretation:
+
+-   Small p-value → added terms significantly improve fit.
+-   Only valid for **nested models**.
+-   Tests statistical improvement, not predictive performance.
+
+------------------------------------------------------------------------
+
+## Information Criteria: AIC
+
+AIC balances - fit (deviance = -2 log-likelihood) - complexity (# of parameters = k):
+
+$$
+AIC = -2\ell(\hat\theta) + 2k
+$$
+
+where: - $\ell(\hat\theta)$ = maximized log-likelihood - $k$ = number of parameters
+
+Lower AIC = better expected out-of-sample fit.
+
+Example code:
+
+```{r}
+AIC(fit_base)
+```
+
+------------------------------------------------------------------------
+
+## Why AIC Works
+
+-   Penalizes overfitting.
+-   Approximation to leave-one-out cross-validation.
+-   Good for predictive modeling.
+-   Works for nested or non-nested models.
+
+------------------------------------------------------------------------
+
+## BIC (Bayesian Information Criterion)
+
+Similar to AIC, but stronger penalty:
+
+$$
+BIC = -2\ell(\hat\theta) + k \log(n)
+$$
+
+Penalty increases with sample size.
+
+Implication:
+
+-   Prefers simpler models.
+-   More conservative than AIC.
+-   Better for model selection (theory-driven contexts).
+
+Example code:
+
+```{r}
+BIC(fit_base)
+```
+
+------------------------------------------------------------------------
+
+## Comparing AIC and BIC
+
+| Criterion | Penalty   | Goal                             |
+|-----------|-----------|----------------------------------|
+| AIC       | $2k$      | Predictive accuracy              |
+| BIC       | $k\log n$ | Parsimony / model identification |
+
+As $n$ increases:
+
+-   BIC penalizes complexity more strongly.
+
+------------------------------------------------------------------------
+
+## Cross-Validation: The Gold Standard
+
+Goal: Estimate true out-of-sample performance.
+
+Basic idea:
+
+1.  Split data into training and test sets.
+2.  Fit model on training set.
+3.  Evaluate performance on test set.
+    -   Repeat across folds.
+
+------------------------------------------------------------------------
+
+## K-Fold Cross-Validation
+
+Procedure:
+
+1.  Divide data into $K$ folds.
+2.  For each fold:
+    -   Train on $K-1$ folds
+    -   Test on held-out fold
+3.  Average performance across folds.
+
+Common choice: $K = 5$ or $10$.
+
+------------------------------------------------------------------------
+
+## Model Evaluation Metrics (Binary Outcomes)
+
+When evaluating logistic regression models, we can focus on:
+
+1.  **Probability quality**
+    -   Log loss
+    -   Brier score
+2.  **Classification performance**
+    -   Sensitivity
+    -   Specificity
+    -   PPV
+    -   NPV
+    -   Accuracy
+3.  **Ranking ability**
+    -   AUC
+
+Different metrics answer different questions.
+
+------------------------------------------------------------------------
+
+## ROC Curve and AUC
+
+::::: columns
+::: {.column width="50%"}
+**ROC curve plots**
+
+-   **Sensitivity** (true positive rate) on the y-axis\
+-   **1 − Specificity** (false positive rate) on the x-axis
+
+**AUC (Area Under the Curve)**
+
+-   Interpretable as the probability a random positive is ranked higher than a random negative.\
+-   Threshold-independent measure of **discrimination** (not calibration).\
+-   Values: 0.5 = no better than chance; 1.0 = perfect discrimination.
+:::
+
+::: {.column width="50%"}
+```{r roc_auc_plot, echo=FALSE}
+library(pROC)
+
+# compute predicted probabilities
+pred_probs <- predict(fit_base, type = "response")
+roc_obj <- pROC::roc(response = RHC_use$survival, predictor = pred_probs, quiet = TRUE)
+
+# Build data.frame for ggplot
+roc_df <- data.frame(
+  fpr = 1 - roc_obj$specificities,
+  tpr = roc_obj$sensitivities
+)
+
+# AUC and CI
+auc_val <- as.numeric(roc_obj$auc)
+auc_ci <- pROC::ci.auc(roc_obj)
+auc_text <- sprintf("AUC = %.3f\n95%% CI = [%.3f, %.3f]", auc_val, auc_ci[1], auc_ci[3])
+
+# Plot
+library(ggplot2)
+ggplot(roc_df, aes(x = fpr, y = tpr)) +
+  geom_line(size = 1) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "grey50") +
+  coord_equal() +
+  labs(
+    x = "1 - Specificity (False Positive Rate)",
+    y = "Sensitivity (True Positive Rate)",
+    title = "ROC Curve — Base Logistic Model",
+    subtitle = auc_text
+  ) +
+  theme_minimal(base_size = 13)
+
+```
+:::
+:::::
+
+------------------------------------------------------------------------
+
+## Summary of Metrics
+
+| Metric      | Requires Threshold? | Measures               |
+|-------------|---------------------|------------------------|
+| Log Loss    | No                  | Probability accuracy   |
+| Sensitivity | Yes                 | True positive rate     |
+| Specificity | Yes                 | True negative rate     |
+| PPV / NPV   | Yes                 | Predictive value       |
+| Accuracy    | Yes                 | Overall classification |
+| AUC         | No                  | Ranking ability        |
+
+------------------------------------------------------------------------
+
+## Important Distinction
+
+Different tools answer different questions.
+
+-   **Inference tools** (LRT, p-values) test significance.
+-   **AIC/BIC** balance fit and complexity.
+-   **Cross-validation metrics** evaluate predictive performance.
+-   These tools help us to choose models.
+
+------------------------------------------------------------------------
+
+## Cross-Validation vs AIC/BIC
+
+-   Cross-validation directly estimates predictive performance.
+
+-   AIC approximates expected out-of-sample deviance.
+
+-   BIC approximates model identification under certain assumptions.
+
+-   If computationally feasible: \> Cross-validation is preferred.
+
+But:
+
+-   AIC is fast and often sufficient.
+-   BIC is stricter.
+
+------------------------------------------------------------------------
+
+## Practical Guidance
+
+When comparing logistic models:
+
+1.  Use LRT for nested hypothesis testing.
+2.  Use AIC/BIC for model selection.
+3.  Use cross-validation when prediction is primary goal.
+4.  Do not rely on p-values alone.
+
+------------------------------------------------------------------------
+
+## What Is an Interaction?
+
+In a logistic regression model:
+
+$$
+\log\left(\frac{p_i}{1-p_i}\right)
+= \beta_0 + \beta_1 X_1 + \beta_2 X_2
+$$
+
+An **interaction** adds a product term:
+
+$$
+\log\left(\frac{p_i}{1-p_i}\right)
+= \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \beta_3 X_1 X_2
+$$
+
+------------------------------------------------------------------------
+
+## Interpretation With an Interaction
+
+Model:
+
+$$
+\log\left(\frac{p_i}{1-p_i}\right)
+= \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \beta_3 X_1 X_2
+$$
+
+For a one unit change in $X_1$, the effect is:
+
+$$
+\frac{\partial}{\partial X_1}
+\log\left(\frac{p_i}{1-p_i}\right)
+= \beta_1 + \beta_3 X_2
+$$
+
+The effect of $X_1$ **depends on the value of** $X_2$.
+
+------------------------------------------------------------------------
+
+## Example: RHC × 2-month Predicted Survival Probability
+
+Model:
+
+$$
+\log\left(\frac{p}{1-p}\right)
+= \beta_0 + \beta_1 RHC + \beta_2 surv2md1 + \beta_3 RHC \times surv2md1
+$$
+
+For patients with RHC = 0: $\log\left(\frac{p}{1-p}\right)= \beta_0 + \beta_2 surv2md1$
+
+For patients with RHC = 1: $\log\left(\frac{p}{1-p}\right) = (\beta_0 + \beta_1) + (\beta_2 + \beta_3) surv2md1$
+
+-   So:
+    -   There is a different relationship between log-odds and surv2md1, depending if RHC is 0 or 1.
+    -   The treatment effect varies with severity.
+
+------------------------------------------------------------------------
+
+## Interaction Plot on Log-Odds Scale
+
+```{r echo=FALSE}
+fit_int <- glm(survival ~ RHC * surv2md1,
+               data = RHC_use,
+               family = binomial)
+
+surv2md1_seq <- seq(min(RHC_use$surv2md1, na.rm = TRUE),
+               max(RHC_use$surv2md1, na.rm = TRUE),
+               length.out = 100)
+
+newdat <- expand.grid(
+  surv2md1 = surv2md1_seq,
+  RHC = c(0,1)
+)
+
+newdat$log_odds <- predict(fit_int,
+                           newdata = newdat,
+                           type = "link")
+
+ggplot(newdat,
+       aes(x = surv2md1,
+           y = log_odds,
+           color = factor(RHC))) +
+  geom_line(size = 1.2) +
+  labs(
+    title = "Interaction on Log-Odds Scale",
+    x = "2-Month Survival Probability",
+    y = "Log-Odds of Survival",
+    color = "RHC"
+  ) +
+  scale_color_manual(values = c("steelblue","firebrick"),
+                     labels = c("No RHC","RHC")) +
+  theme_minimal(base_size = 14)
+```
+
+------------------------------------------------------------------------
+
+## When Does an Interaction Make Sense?
+
+Because interactions are challenging to interpret, you should generally use interactions when:
+
+-   There is a scientific reason.
+-   The effect of one predictor plausibly depends on another.
+-   Plots suggest non-parallel trends (interaction plots).
+-   Model comparison supports it.
+
+I would be careful using interactions blindly.
+
+------------------------------------------------------------------------
+
+## Questions to ask:
+
+-   Is the interaction clinically meaningful?
+-   Does it change predicted probabilities materially?
+-   Does it improve interpretability?
+-   Does it improve model fit enough to justify complexity?
+
+------------------------------------------------------------------------
+
+## Conceptual Summary
+
+Without interaction:
+
+-   One effect applies to everyone.
+
+With interaction:
+
+-   Effects differ across groups.
+
+In logistic regression:
+
+-   Interaction affects log-odds
+-   Interpretation is multiplicative on odds scale
+
+------------------------------------------------------------------------
+
+## Explore Interactions
+
+Pick another interaction that makes substantive sense.
+
+Examples:
+
+-   `age * surv2md1`
+-   `sex_Female * das2d3pc`
+-   `age * dnr1_Yes`
+-   `sex_Female * RHC`
+-   Something else?
+
+Fit an interaction model and explain what it means to your group:
+
+```{r}
+fit_int <- glm(survival ~ RHC + age + aps1 + surv2md1 + pafi1 +
+                  dnr1_Yes + das2d3pc + chfhx + sex_Female + temp1 + age:dnr1_Yes,
+               data = RHC_use,
+               family = binomial)
+
+summary(fit_int)
+
+anova(fit_base, fit_int, test = "Chisq")
+AIC(fit_base, fit_int)
+BIC(fit_base, fit_int)
+```
+
+------------------------------------------------------------------------
+
+## Explain to group members
+
+-   Is the interaction statistically supported?
+-   Can you interpret the interaction parameters?
+-   Can you explain the interaction to somebody else?
+-   Does AIC or BIC support keeping it?
+
+------------------------------------------------------------------------
+
+## Generalized Additive Model (GAM) Idea
+
+In logistic regression we assume:
+
+$$
+\log\left(\frac{p_i}{1-p_i}\right)
+=
+\beta_0 + \beta_j X_{ij}
+$$
+
+That is, the log-odds is **linear** in $X_j$. A GAM allows:
+
+$$
+\log\left(\frac{p_i}{1-p_i}\right)=
+\beta_0 + f_j(X_{ij}) = 
+\beta_0 + \sum_{k=1}^{K} b_k(X_{ij})
+$$
+
+where:
+
+-   $b_k(\cdot)$ are basis functions
+-   The relationship is smooth but not forced to be linear
+
+------------------------------------------------------------------------
+
+## How We Approximate This in R
+
+We approximate:
+
+$$
+f_j(X_j) = \sum_{k=1}^{K} b_k(X_j)
+$$
+
+using:
+
+-   `poly(X, d)` → polynomial basis\
+-   `bs(X, df)` → B-spline basis\
+-   `ns(X, df)` → natural spline basis\
+-   Fourier Sum
+
+So we stay within logistic regression, but allow flexible shapes.
+
+------------------------------------------------------------------------
+
+## Nonlinear Effects
+
+Baseline temperature is a variable that works under the "Goldilocks" principle -- the best is not too hot, not too code.
+
+Let’s examine whether nonlinear effects for `temp1` improves the model.
+
+------------------------------------------------------------------------
+
+## Option 1: Polynomial
+
+```{r}
+fit_poly <- glm(survival ~ RHC + poly(temp1, 2) + aps1 + age + surv2md1 +
+                  pafi1 + dnr1_Yes + das2d3pc + chfhx +
+                  sex_Female ,
+                data = RHC_use,
+                family = binomial)
+summary(fit_poly)
+```
+
+------------------------------------------------------------------------
+
+## Option 2: Natural Splines
+
+```{r}
+fit_ns <- glm(survival ~ RHC +  ns(temp1, df = 3) + aps1 + age + surv2md1 +
+                pafi1 + dnr1_Yes + das2d3pc + chfhx +
+                sex_Female ,
+              data = RHC_use,
+              family = binomial)
+
+summary(fit_ns)
+```
+
+------------------------------------------------------------------------
+
+## Compare Nonlinear Models
+
+```{r}
+anova(fit_base, fit_poly, test = "LRT")
+anova(fit_base, fit_ns, test = "LRT")
+
+AIC(fit_base, fit_poly, fit_ns)
+BIC(fit_base, fit_poly, fit_ns)
+```
+
+------------------------------------------------------------------------
+
+## Explore Nonlinearity
+
+1.  Pick a variable to explore nonlinear relationships.
+2.  Fit at least two nonlinear models.
+3.  Compare these nonlinear models
+
+------------------------------------------------------------------------
+
+## Final Challenge (Open-Ended)
+
+In your groups:
+
+1.  Propose a “best” model.
+2.  Justify:
+    -   Interaction choices
+    -   Nonlinear choices
+    -   Variables included/excluded
+3.  Be prepared to defend:
+    -   Why not simpler?
+    -   Why not more complex?

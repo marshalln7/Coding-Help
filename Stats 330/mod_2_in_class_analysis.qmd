@@ -1,0 +1,279 @@
+---
+title: "Module 2 - Simple Linear Regression Model Assumptions"
+subtitle: <center> <h1>In-Class Analysis</h1> </center>
+format: 
+  html:
+    embed-resources: true 
+---
+
+```{=html}
+<style type="text/css">
+h1.title {
+  font-size: 40px;
+  text-align: center;
+}
+</style>
+```
+
+```{r setup, include=FALSE}
+# load packages here
+library(tidyverse)
+library(ggfortify)  # plot lm objects using ggplot instead of base R
+library(alr4)  # Box-Cox transformation
+library(car)
+```
+
+## Data and Description
+
+A country's fertility rate is a key indicator that reflects demographic trends and socioeconomic well being, and macroeconomists often desire to model the dependence of this rate on other key indicators. In this coding exercise, we will investigate the effects of a country's per capita gross domestic product on the fertility rate using a data set of $n = 199$ countries, specifically the `UN11` data set and its variables **fertility** and **ppgdp**.
+
+We will see that a simple linear regression model is not appropriate for these variables, and will investigate transformations in order to produce a valid simple linear regression model.
+
+Do the following:
+
+1.  Load the `alr4` package and examine the first few rows of the `UN11` data set.
+2.  Create a scatterplot of the data with **ppgdp** on the x-axis and **fertility** on the y-axis, and overlay the linear regression line.
+3.  Apply linear regression to the data (call the fitted model variable `fert_lm`).
+
+```{r}
+head(UN11)
+
+
+plot <- ggplot(UN11, aes(x = ppgdp, y = fertility)) +
+  geom_point(color = "blue", size = 1) +
+  labs(title = "The Relationship Between Wind Speeds at Reference Sites and Candidate Sites",
+       x = "Reference Site Wind Speed (m/s)",
+       y = "Candidate Site Wind Speed (m/s)") +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  theme_minimal()
+
+print(plot)
+
+fert_model <- lm(ppgdp ~ fertility, data = UN11)
+
+autoplot(fert_model)
+```
+
+## Diagnostics: Check if Assumptions are Met
+
+In turn, check each assumption of linear regression. Create the appropriate plot(s) and describe what it reflects about the plausibility of the relevant regression assumption(s).
+
+### 1. Linearity
+
+**(a) Scatterplot**
+
+```{r, fig.align='center'}
+# You can just refer to your scatterplot above.
+```
+
+It doesn't look very linear at all, it kinda just drops off
+
+**(b) Residuals vs. Fitted Values Plot**
+
+```{r, fig.align='center'}
+# your code here
+```
+
+\< your response here \>
+
+### 2. Equal Variance
+
+\< your response here (refer to the residuals vs. fitted values plot) \>
+
+### 3. The errors $\epsilon_i$ are independent across $i$.
+
+This assumption can be difficult to test statistically. Generally, if you have a random sample, the residuals will be independent. *If* the observations in this data set were in a natural order, then we could use a sequence plot to assess dependence, but a sequence plot doesn't make much sense here since the data are not in a natural order. Below is the code to create a sequence plot (indexed by row), for your reference.
+
+**(a) Sequence Plot**
+
+```{r, eval=FALSE}
+## Make sure you have saved the residuals to the UN11 data frame before running
+## the code below.
+#
+#ggplot(UN11) +
+#  geom_line(mapping = aes(x = 1:dim(UN11)[1], y = residuals)) +
+#  theme_bw() + 
+#  scale_y_continuous(limits = c(-3.8, 3.8)) +
+#  scale_x_continuous(limits = c(0, 200)) +
+#  xlab("Order in Data Set") 
+```
+
+### 4. The errors are normally distributed.
+
+**(a) Histogram**
+
+```{r, fig.align='center'}
+# your code here
+```
+
+\< your response here \>
+
+**(b) Normal QQ Plot**
+
+```{r, fig.align='center'}
+# plot(<lm object>, which = 2) # produces the normal QQ plot
+
+```
+
+\< your response here \>
+
+**(c) Shapiro-Wilk Test**
+
+```{r, fig.align='center'}
+# shapiro.test(UN11$residuals)
+```
+
+\< your response here \>
+
+### 5. Check for influential observations.
+
+```{r, fig.align='center'}
+# plot(<lm object>, which = 4) # produces the Cook's distance plot
+# plot(<lm object>, which = 5) # produces the Residuals by leverage plot
+```
+
+\< your response here \>
+
+## Corrections
+
+**(a) Transform x** Given our assessment of the assumptions, we will want to perform some kind of transformation. Try creating a new predictor that is a function of the original. For example, the square root of GDP.
+
+```{r, fig.align='center'}
+# < your code here >
+```
+
+Try a few more transformations of GDP to see if you can improve the fit. Then fit a model with your chosen transformation.
+
+```{r}
+# < your code here >
+```
+
+**(b) Check Linearity** Create the residuals versus fitted values plot for the new model, and confirm that the linearity assumption is still not satisfied.
+
+```{r}
+# < your code here >
+```
+
+**(c) Transform Y** It may be that a transformation of the response (`fertility`) is also necessary. Try a few different transformations of the response in addition to `ppgdp`. See if you can find a reasonable combination of transformations.
+
+```{r}
+# < your code here >
+```
+
+Taking the logarithm of both `ppgdp` and `fertility` looks promising. Try fitting the model with the log transformation on both and check the assumptions. We will possibly return to another transformation if that model does not satisfy the assumptions.
+
+**(d) Final Model Fit** Refit the linear regression model using logarithmic transformations for both the predictor and response. Call the fitted model `fert_transxy_lm`.
+
+```{r}
+# < your code here >
+```
+
+**(e) Plot in Original Scale** It can be informative to view the model fit in the original scale, where it appears as a curve. Here is how you plot the transformed regression model on original scale of the data. Note: Once you have fit the transformed regression model above (which you should name `fert.transxy.lm`), remove the argument "eval = FALSE" from the R chunk opening below. Otherwise, the code below will not be run when you knit this file.
+
+```{r eval=FALSE}
+# Sequence of ppgdp values that I am interested in using to predict fertility 
+pred_vals <- seq(min(UN11$ppgdp), max(UN11$ppgdp), length = 100)  
+# Predictions of log(fertility)
+pred_trans <- fert_transxy_lm$coefficients[1] + 
+  fert_transxy_lm$coefficients[2] * log(pred_vals)
+# Predictions of fertility
+pred_orig <- exp(pred_trans)  # use exp to "undo" log transform
+preds <- data.frame("pred_vals" = pred_vals, "pred_orig" = pred_orig)
+
+fert_base_plot_curve <- ggplot(data = UN11, 
+                               mapping = aes(x = ppgdp, y = fertility)) +
+  geom_point() +
+  theme_bw() +
+  scale_x_continuous(limits = c(0, 105100)) +
+  scale_y_continuous(limits = c(0, 7)) +
+  theme(aspect.ratio = 1)
+
+fert_base_plot_curve + 
+  geom_line(data = preds, 
+            aes(x = pred_vals, y = pred_orig), 
+            size = 1.5, color ="blue")
+```
+
+## Re-Check Assumptions
+
+Go through each of the diagnostic plots one last time for the final model, and verify that each of the assumptions seems plausible based on these plots.
+
+### 1. Linearity
+
+**(a) Scatterplot**
+
+```{r, fig.align='center'}
+# < your code here >
+```
+
+\< your response here \>
+
+**(b) Residuals vs. Fitted Values Plot**
+
+```{r, fig.align='center'}
+# < your code here >
+```
+
+\< your response here \>
+
+### 2. Equal Variance
+
+**(a) Scale-Location plot**
+
+```{r, fig.align='center'}
+# < your code here >
+```
+
+\< your response here \>
+
+### 4. The errors are normally distributed.
+
+**(a) Boxplot**
+
+```{r, fig.align='center'}
+# < your code here >
+```
+
+\< your response here \>
+
+**(b) Histogram**
+
+```{r, fig.align='center'}
+# < your code here >
+```
+
+\< your response here \>
+
+**(c) Normal QQ Plot**
+
+```{r, fig.align='center'}
+# < your code here >
+```
+
+\< your response here \>
+
+**(d) Shapiro-Wilk Test**
+
+```{r}
+# < your code here >
+```
+
+\< your response here \>
+
+### 5. Check for influential observations.
+
+```{r}
+# < your code here >
+```
+
+\< your response here \>
+
+## Repeat
+
+We will not do this here, but it would be good to try a few more transformations, view the diagnostics, and from there determine the "best" model fit among all the transformed models.
+
+## Summary and Conclusions
+
+*Always* start by plotting your data (exploratory data analysis: view data, create scatterplots, summarize data, etc.) before jumping into an analysis or fitting a model. The scatterplot of `fertility` vs. `ppgdp` was obviously nonlinear, and the diagnostic plots verified that observation. After transforming ppgdp, there was still some evidence of nonlinearity, unequal variance, and non-normality. We then tried transofrming `fertility` as well, refit the model, and re-checked the assumptions. The assumptions all appear to be met. In practice, we could try additional transformations, compare the transformed models, and then pick the best model. Once we have a model that satisfies the assumptions, we can look at our model coefficients and p-values and safely draw conclusions.
+
+Note: The ordinary way of interpreting coefficients is sometimes not useful if one or more of the variables is transformed. In this example, a unit change of `log(ppgdp)` is not very meaningful. The log transformation is nice for interpretation since it corresponds to percentage changes instead of unit changes. For example, to interpret the slope of -0.207 from the transformed model, we would say, "For every 10% increase in per capita GDP, average fertility decreases by 1.95%."

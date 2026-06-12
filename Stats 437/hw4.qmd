@@ -1,0 +1,145 @@
+---
+title: "Homework #4 — DAGs: Drawing and Justifying Causal Assumptions"
+author: "Marshall Nielsen"
+format: 
+  pdf:
+    toc: false
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Overview
+
+In this homework you will:
+
+1.  Read a short scenario and identify **causal relationships** among variables.
+2.  Draw a **Directed Acyclic Graph (DAG)** using `dagify()` and `ggdag`.
+3.  For **every arrow** in your DAG, write 1–3 sentences justifying why you believe that causal relationship exists.
+
+**Instructions:** - Use the scenario below (do not change the setting). - You may add *at most* 2 arrows if you believe the scenario strongly implies them, but do **not** add new variables. - Your DAG must be **acyclic** (no feedback loops). - Your write-up should be clear and concise.
+
+# Part 1 — Scenario (Read Carefully)
+
+A state public health department is studying whether a new outpatient program reduces **30-day hospital readmission** among patients discharged after a hospitalization for **heart failure**.
+
+Starting in 2024, some clinics implement a program called **BetterCare**, which includes:
+
+-   medication reconciliation,
+-   follow-up scheduling,
+-   and nurse check-ins for 30 days after discharge.
+
+Patients are not randomized to BetterCare. Instead, BetterCare is more likely to be offered in clinics with higher staffing and in patients who are perceived to be at higher risk.
+
+The department has access to administrative and electronic health record (EHR) data for all discharged heart failure patients. They want to estimate the causal effect of receiving BetterCare on 30-day readmission.
+
+# Part 2 — Variables
+
+Use the following variables **exactly** (Please use the letters in the DAG below):
+
+1.  **A:** BetterCare enrollment (1 = yes, 0 = no)\
+2.  **Y:** 30-day hospital readmission (1 = yes, 0 = no)\
+3.  **S:** Heart failure severity at discharge (clinical status / ejection fraction category
+4.  **C:** Comorbidity burden (e.g., diabetes, CKD, COPD; summary score)\
+5.  **M:** Medication adherence (during the 30-day follow-up window)\
+6.  **F:** Follow-up visit completed within 7 days (binary: 1/0)\
+7.  **I:** Insurance type / coverage generosity\
+8.  **P:** Primary care access (having an established PCP / appointment availability)\
+9.  **K:** Clinic resources / staffing level (nurse availability, care coordination infrastructure)\
+10. **R:** Prior utilization history (e.g., \# hospitalizations in past year)
+
+You should assume that all of these variables are accurately measured even though EHR records sometimes struggle to capture these things. You don't need to specify the model; instead, you should think about how the variables relate to each other.
+
+# Part 3 — Your Task: Draw a DAG
+
+## A. Propose your DAG structure (conceptually)
+
+Before coding, write a short description (3–6 sentences):
+
+-   What is the main causal pathway from **A → Y**?
+    -   I think that of the variables listed, the main causal pathway is going to be by the fact that since they're going to have a followup appointment and nurses checking up on them all the time, as soon as they need to be rehospitalized again, they will be.
+-   What are likely confounders of **A** and **Y**?
+    -   Confounders among these variables include heart failure severity at discharge (S) and comorbidity burden (C) since these would both increase both the likelihood of a patient enrolling in BetterCare as they are generally in worse condition. Clinic resources (K) and insurance type (I) could also act as confounders by increasing the likelihood that the clinic will decide to provide a patient with more comprehensive care. Primary care access (P) and prior utilization history (R) will also affect Y in a way mostly independent of A, creating noise.
+-   What are potential mediators?
+    -   Some other causal paths from A to Y could include their medication adherance (M) since the check-ins could help them stay more responsible for taking their medications. A to Y could also be mediated by how likely they are to have their seven day follow-up visit (F), which will determine whether a patient who is starting to get worse again is seen before things get too bad or only when their symptoms have returned and they now need intensive care again.
+
+Write here:
+
+-   Main pathway(s):
+    -   A to F to Y\
+-   Confounders:
+    -   S to A and Y
+    -   C to A and Y
+    -   K to A and Y
+    -   I to A
+    -   P to Y
+    -   R to Y\
+-   Mediators:
+    -   A to M to Y
+
+## B. Draw your DAG in R using `dagify()`
+
+Use the template below and [this tutorial](https://cran.r-project.org/web/packages/ggdag/vignettes/intro-to-ggdag.html). You must fill in the formula-like statements defining the arrows. You may use AI to help you de-bug dagify.
+
+```{r}
+library(ggdag)
+library(ggplot2)
+
+theme_set(theme_dag())
+
+# Place your dagify() call here.
+# Example syntax:
+dag <- dagify(
+  Y ~ F + M + S + C + K + P + R + A,
+  F ~ A,
+  M ~ A,
+  A ~ S + C + K + I,
+  
+  exposure = "A",
+  outcome  = "Y"
+)
+
+
+ggdag(dag, text = TRUE) +
+  ggtitle("DAG for BetterCare and 30-day Readmission")
+
+```
+
+# Part 4 — Arrow-by-Arrow Justification
+
+For every arrow you include, write a justification.
+
+Format your answers as:
+
+-   X → Y: 1-2 sentence justification.
+
+Example:
+
+-   P → F: Patients without access to primary care are less likely to attend scheduled follow-up visits.
+
+Write your justifications here:
+
+-   A → Y: People enrolled in the program are going to be under a lot more supervision, and so as soon as they need to be readmitted, they will be.
+-   A → F: People admitted to the program will be more likely to attend a 7 day follow up visit because they are scheduled as a part of the BetterCare program.
+-   F → Y: People who attend 7 day follow up visits will be more likely to catch new issues before they get too serious and will be less likely to be rehospitalized.
+-   A → M: People admitted to the program will be more likely to adhere to their prescribed medication because they'll have nurses checking in with them about it.
+-   M → Y: People who adhere to their medication will recover better and so they'll be readmitted to the hospital less.
+-   S → A: People with more severe heart failure will be more likely to be enrolled in the program because the doctors will be more concerned about their recovery.
+-   S → Y: People with more severe heart failure will be more likely to backslide and therefore more likely to be rehospitalized.
+-   C → A: People with comorbidities will be more likely to be enrolled in BetterCare because the doctors will be more worried about them.
+-   C → Y: People with comorbidities will be more likely to be rehospitalized because there are more chances for them to experience complications.
+-   K → A: Clinics with more resources will be more likely to enroll people in BetterCare because they have more resources to spend administering the program.
+-   K → Y: Clinics with more resources will also do a better job at treating patients the first time around which will make them less likely to be rehospitalized.
+-   I → A: Patients with better insurance will be more likely to be enrolled in the program because they are more likely to be covered for that kind of care.
+-   P → Y: Patients with better primary care access will be less likely to be rehospitalized because they will be more likely to bring any new issues to them before something gets really bad and they're readmitted to the hospital.
+-   R → Y: If someone already goes to the hospital a lot (either by choice or by necessity) they will be much more likely to be rehospitalized again.
+
+Submission Checklist
+
+# Before submitting, confirm:
+
+-   I used the exact 10 variables given.
+-   My DAG is acyclic (no feedback loops).
+-   I produced a plot using ggdag().
+-   I justified every arrow I included.

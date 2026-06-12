@@ -1,0 +1,305 @@
+---
+title: "Module 4 - Multiple Linear Regression"
+subtitle: <center> <h1>In-Class Analysis</h1> </center>
+format: 
+  html:
+    embed-resources: true 
+---
+
+```{=html}
+<style type="text/css">
+h1.title {
+  font-size: 40px;
+  text-align: center;
+}
+</style>
+```
+
+```{r setup, include=FALSE}
+# load packages here
+library(tidyverse)
+library(ggfortify) # needed for autoplot with lm objects
+library(car)  # needed for added-variable plots 
+library(corrplot)  # colored correlation matrix
+library(patchwork)  # plot plots next to each other 
+# (You may need to install some of these packages first)
+```
+
+## Data and Description
+
+*Note: you will be duplicating a lot of code from Module 2 - it will save you time if you open up your Module 2 code and copy/paste as needed. Alternatively, you can skip the sections that have you copy/paste code from Module 2 to save time.*
+
+**This is the same data set used in the Module 4 Course Notes. You can check your code output against the output from the course notes to verify you are getting the correct results.**
+
+Companies are continually evaluating supervisors to not only determine adequate performance, but also gauge employee morale (an important indicator for employee productivity). In an effort to understand the important aspects of a good supervisor, 30 employees at a certain company were asked to provide an overall rating and scores on 6 characteristics of their immediate managers. Employees were asked to rate the following statements on a scale from 0 to 100 (0 meaning ”completely disagree” to 100 meaning ”completely agree”):
+
+| Variable | Description |
+|----|----|
+| Rating | Overall rating of supervisor performance. Higher score means better supervisor. |
+| Complaints | Score for "Your supervisor handles employee complaints appropriately." |
+| Privileges | Score for "Your supervisor allows special privileges." |
+| Learn | Score for "Your supervisor provides opportunities to learn new things." |
+| Raises | Score for "Your supervisor bases raises on performance." |
+| Critical | Score for "Your supervisor is too critical of poor performance." |
+| Advance | Score for "I am *not* satisfied with the rate I am advancing in the company.” |
+
+Do the following:
+
+1.  Download the "Supervisor.txt" file from Canvas and put it in the same folder as this quarto file.
+2.  Read in the data set and look at a summary of the data.
+
+```{r}
+super <- read_table("Supervisor.txt")
+summary(super)
+```
+
+## Explore the Data
+
+### Create a Scatterplot Matrix.
+
+Hint: you can use the `plot` function or the `pairs` function.
+
+```{r, fig.align='center'}
+plot(super)
+pairs(super, pch = 19, lower.panel = NULL) # this omits the duplicated half
+
+# ggplot version
+library(GGally) # May have to install this package
+ggpairs(super)
+
+```
+
+### Create a Correlation Matrix and Correlation Plot.
+
+Hint: use the `cor` function. You may want to use the `round` function to display only 2 decimal places for easier viewing. Hint: for a color- and shape-coded correlation matrix, use the `corrplot` package and function (use the `cor` function as input).
+
+```{r}
+round(cor(super), 2)
+corrplot(cor(super), type = "upper")
+```
+
+## Fit a Multiple Linear Regression Model
+
+Save the residuals and fitted values to a new data frame `super_expanded`, which also contains the original variables.
+
+Hint: for the X variables in the `lm` function, you can type all the variables out separated by a plus sign "+", or you can simply type "\~ .". The "." tells R that you want to include every column in your data set, except the column you specified as the response, as an independent variable in your model.
+
+Be careful with the "\~ ." notation. If you save the residuals and/or fitted values to the original data frame `super`, you cannot rerun your linear model with "\~ .", otherwise those variables will be added to the model. Your output should match the output in the class notes.
+
+```{r}
+# super_lm <- lm(Rating ~ Complaints + Privileges + Learn + 
+#                  Raises + Critical + Advance, data = super)
+super_lm <- lm(Rating ~ ., data = super)
+summary(super_lm)
+
+resids <- super_lm$residuals
+yhat <- super_lm$fitted.values
+
+super_expanded <- data.frame(super, resids = resids, fitted = yhat)
+```
+
+## Check Multiple Linear Regression Model Assumptions
+
+### 1. The X's vs Y are linear
+
+Check your scatterplot matrix from above, in addition to the residuals vs. fitted values plot, the residuals vs predictor plots, and the partial regression plots (below).
+
+**(a) Scatterplot Matrix (already created - see above)**
+
+**(b) Residuals vs. Fitted Values Plot**
+
+```{r, fig.align='center'}
+autoplot(super_lm, which = 1, ncol = 1, nrow = 1) +
+  theme(aspect.ratio = 1)
+```
+
+**(c) Residuals vs. Predictor Plots (6 plots in total)**
+
+```{r, fig.align='center'}
+resid_vs_complaints <- ggplot(data = super_expanded) +
+  geom_point(mapping = aes(x = Complaints, y = resids)) +
+  theme(aspect.ratio = 1)
+
+resid_vs_privileges <- ggplot(data = super_expanded) +
+  geom_point(mapping = aes(x = Privileges, y = resids)) +
+  theme(aspect.ratio = 1)
+
+resid_vs_learn <- ggplot(data = super_expanded) +
+  geom_point(mapping = aes(x = Learn, y = resids)) +
+  theme(aspect.ratio = 1)
+
+resid_vs_raises <- ggplot(data = super_expanded) +
+  geom_point(mapping = aes(x = Raises, y = resids)) +
+  theme(aspect.ratio = 1)
+
+resid_vs_critical <- ggplot(data = super_expanded) +
+  geom_point(mapping = aes(x = Critical, y = resids)) +
+  theme(aspect.ratio = 1)
+
+resid_vs_advance <- ggplot(data = super_expanded) +
+  geom_point(mapping = aes(x = Advance, y = resids)) +
+  theme(aspect.ratio = 1)
+
+# put plots in 2 rows & 3 columns using the patchwork package
+(resid_vs_complaints | resid_vs_privileges | resid_vs_learn) /
+  (resid_vs_raises | resid_vs_critical | resid_vs_advance)
+```
+
+**(d) Partial Regression Plots (also called "Added Variable" plots)**
+
+Hint: use the `avPlots` function from the car library with your fitted model as the argument to the function.
+
+```{r, fig.align='center'}
+avPlots(super_lm)
+```
+
+### 2. Check for Normality of the errors
+
+There is not enough evidence to conclude that normality is not satisfied. We will assume normality is satisfied.
+
+```{r, fig.align='center'}
+
+hist(resids)
+plot(super_lm, which = 2)
+
+## OR
+
+
+ggplot(data = super_expanded) +
+  geom_histogram(aes(x = resids, y = after_stat(density)), 
+                 binwidth = 4) +
+  stat_function(fun = dnorm, color = "red", linewidth = 2,
+                args = list(mean = mean(resids), 
+                            sd = sd(resids))) 
+
+autoplot(super_lm, which = 2)
+shapiro.test(resids)
+```
+
+### 3. Check for Constant variance
+
+Constant variance appears satisfied.
+
+```{r, fig.align='center'}
+
+plot(super_lm, which = 1)
+
+## OR
+
+autoplot(super_lm, which = 1, nrow = 1, ncol = 1)
+```
+
+### 4. Check for influential points.
+
+```{r, fig.align='center'}
+# Residuals vs. Leverage plot using the following code:
+
+plot(super_lm, which = 5)
+
+## OR
+
+cd_cont_pos <- function(leverage, level, model) {sqrt(level*length(coef(model))*(1-leverage)/leverage)}
+cd_cont_neg <- function(leverage, level, model) {-cd_cont_pos(leverage, level, model)}
+
+cd_threshold <- 0.5
+autoplot(super_lm, which = 5) +
+  stat_function(fun = cd_cont_pos,
+                args = list(level = cd_threshold, model = super_lm),
+                xlim = c(0, 0.6), lty = 2, colour = "red") +
+  stat_function(fun = cd_cont_neg,
+                args = list(level = cd_threshold, model = super_lm),
+                xlim = c(0, 0.6), lty = 2, colour = "red") +
+  scale_y_continuous(limits = c(-4, 4))
+
+```
+
+### 5. Check for Multicollinearity
+
+Check the scatterplot matrix and correlation matrix from above, in addition to the variance inflation factors (below).
+
+**(a) Scatterplot Matrix (already created - see above)**
+
+```{r, fig.align='center'}
+
+super |> 
+  pairs(pch = 19, lower.panel = NULL)
+
+# OR
+super |> 
+  ggpairs()
+```
+
+**(b) Correlation Matrix (already created - see above)**
+
+```{r, fig.align='center'}
+
+corrplot(cor(super), type = "upper")
+
+```
+
+**(c) Variance Inflation Factors (VIF)**
+
+Hint: use the `vif` function from the car library with your fitted model as the argument to the function. Rough rule of thumb: absolute values of the correlations between the predictors should be less than 0.95 for all pairs. For variance inflation factors, can be problematic when the largest VIF is much more than 10 or when the mean VIF is much more than 5.
+
+```{r}
+super_vifs <- vif(super_lm)
+super_vifs
+max(super_vifs)
+mean(super_vifs)
+```
+
+## Use the Model for Inference
+
+### Use the `confint` R function to create a 95% confidence interval for each coefficient. Does the interval for Complaints match the interval in the course notes?
+
+```{r}
+confint(super_lm, level = 0.95)
+```
+
+### Using the `predict` function, calculate a 95% confidence interval for the average supervisor rating ($Y$) when Complaints = 60, Privileges = 50, Learn = 56, Raises = 63, Critical = 76, and Advance = 40. Does this match the interval in the course notes?
+
+```{r}
+predict(super_lm, 
+        newdata = data.frame(Complaints = 60,
+                             Privileges = 50,
+                             Learn = 56,
+                             Raises = 63,
+                             Critical = 76,
+                             Advance = 40), 
+        interval = "confidence", 
+        level = 0.95)
+```
+
+### Using the `predict` function, calculate a 95% prediction interval for the average supervisor rating ($Y$) when Complaints = 60, Privileges = 50, Learn = 56, Raises = 63, Critical = 76, and Advance = 40. Does this match the interval in the course notes?
+
+```{r}
+predict(super_lm, 
+        newdata = data.frame(Complaints = 60,
+                             Privileges = 50,
+                             Learn = 56,
+                             Raises = 63,
+                             Critical = 76,
+                             Advance = 40), 
+        interval = "prediction", 
+        level = 0.95)
+```
+
+## Could we have simplified the model (more on this to come)?
+
+### Use the `anova` R function to test some coefficients, Learn and Raises, simultaneously. The function will take two arguments: (1) the original model and (2) a model excluding Learn and Raises. Can we safely drop Learn and Raises from the model?
+
+```{r}
+super_lm_reduced <- lm(Rating ~ 
+                         Complaints + 
+                         Privileges + 
+                         Critical + 
+                         Advance, 
+                       data = super)
+anova(super_lm, super_lm_reduced)
+```
+
+Note: Since the p-value is relatively large, there is no significant difference in these models, so we can go with the simpler model, meaning we can drop Learn and Raises.
+
+## Summary and Conclusions
+
+Overall, the assumptions all seem to be *roughly* met. We will discuss next steps for this analysis in the upcoming module. Note that transformations are completely valid in multiple linear regression as well. You should *always* start a data analysis with exploratory data analysis (EDA), then we should check to make sure our model assumptions are met, and then we can proceed with statistical inference.

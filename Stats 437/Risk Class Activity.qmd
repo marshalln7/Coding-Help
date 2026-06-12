@@ -1,0 +1,31 @@
+---
+title: "Risk Class Activity"
+format: html
+---
+
+```{r}
+library(dplyr)
+library(tidyr)
+
+data(esoph)
+slice_sample(esoph, n=10)
+```
+
+```{r}
+# Aggregate cases and controls by Alcohol Level
+alcohol_table <- esoph %>%
+  filter(alcgp == "120+" | alcgp == "0-39g/day") %>%
+  mutate(Status = ifelse(alcgp == "120+", "Exposed", "Not exposed")) %>%
+  group_by(Status) %>%
+  summarise(Cases = sum(ncases), Controls = sum(ncontrols))
+
+print(alcohol_table)
+```
+
+```{r}
+# 3. Compute the Odds Ratio
+
+OR = alcohol_table[1,2] * alcohol_table[2,3] / (alcohol_table[1,3] * alcohol_table[2,2])
+
+cat("The High-to-Low Odds Ratio is:", round(OR, 2))
+```

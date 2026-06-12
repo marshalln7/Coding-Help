@@ -1,0 +1,6 @@
+"0","library(dplyr)"
+"0","library(tidyr)"
+"0",""
+"0","data(""iris"")"
+"0","data(esoph)"
+"0","slice_sample(esoph, n=10)"

@@ -1,0 +1,19 @@
+---
+title: "RRDS Conference Practice"
+format: html
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+sf <- cars
+as.tibble(sf)
+```
+
+```{r}
+sf |>
+  filter(dist > 2)
+```
+

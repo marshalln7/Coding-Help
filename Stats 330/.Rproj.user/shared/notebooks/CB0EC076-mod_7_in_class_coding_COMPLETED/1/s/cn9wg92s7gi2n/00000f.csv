@@ -1,0 +1,13 @@
+"0","new_patient <- data.frame(age = 50, "
+"0","                          weight = 182,"
+"0","                          sbp = 136, "
+"0","                          chol = 253,"
+"0","                          cigs = 20)"
+"0",""
+"0","# get the log odds ratio with the standard error"
+"0",""
+"0","log_odds <- predict(heart_logistic,"
+"0","                    newdata = new_patient,"
+"0","                    se.fit = TRUE)"
+"2","Error: object 'heart_logistic' not found
+"

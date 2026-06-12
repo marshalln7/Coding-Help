@@ -1,0 +1,6 @@
+"0","ggplot(maine_state, aes(x = year, y = rate_per_100k)) +"
+"0","  geom_line(col = ""darkblue"") +"
+"0","  geom_point() +"
+"0","  theme_bw() +"
+"0","  labs(title = ""Maine Lyme Disease Rate Over Time (State-level)"","
+"0","       x = ""Year"", y = ""Cases per 100,000"")"

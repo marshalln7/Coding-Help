@@ -1,0 +1,4 @@
+"0","### use code like this"
+"0","ggplot(wine, aes(x = temp, fill = rating)) +"
+"0","  geom_bar(position = ""fill"") +"
+"0","  scale_y_continuous(labels = scales::percent_format())"

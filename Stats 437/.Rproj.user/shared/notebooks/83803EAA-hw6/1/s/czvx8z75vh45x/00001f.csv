@@ -1,0 +1,3 @@
+"0","contact_wine <- wine[wine$contact == ""yes"",]"
+"0","noncontact_wine <- wine[wine$contact == ""no"",]"
+"0","hist(as.numeric(contact_wine$response))"

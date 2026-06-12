@@ -1,0 +1,178 @@
+---
+title: "Module 5 - CV Practice"
+subtitle: <center> <h1>In-Class Analysis</h1> </center>
+format: 
+  html:
+    embed-resources: true 
+---
+
+```{=html}
+<style type="text/css">
+h1.title {
+font-size: 40px;
+text-align: center;
+}
+</style>
+```
+
+```{r setup, include=FALSE}
+library(corrplot)
+library(car)
+```
+
+## Data and Description
+
+**This is the same data set used in the Module 5 Course Notes.**
+
+Environmental impact studies seek to identify and quantify the affect of environmental conditions on human and ecological health. For example, extreme heat poses a threat to public health by creating conditions conducive to hyperthermia. Likewise, extreme cold poses a threat to public health via conditions suitable to hypothermia. Extreme weather events (tornados, typhoons, etc.) also pose an obvious threat to public health. A less understood environmental variable that, hypothetically, may also pose a threat to public health is the concentration of pollution (air quality).
+
+In an effort to understand the impact of the environment on human health, the data set "EnvironmentalImpacts.txt" (found on Canvas) contains environmental and socio-economic information for 60 different cities in the U.S. The collected variables are given in the table below.
+
+| Variable       | Description                                              |
+|-------------------------------------|-----------------------------------|
+| AnnPrecip      | Average annual precipitation                             |
+| MeanJanTemp    | Average January temperature (in degrees Fahrenheit)      |
+| MeanJulyTemp   | Average July temperature (in degrees Fahrenheit)         |
+| PctGT65        | Percent of population greater than 65 years old          |
+| PopPerHouse    | Population per household                                 |
+| School         | Median school years completed                            |
+| PctSound       | Percent of housing units that are "sound"                |
+| PopPerSqMile   | Population per square mile                               |
+| PctNonWhite    | Percent of population that is nonwhite                   |
+| PctWhiteCollar | Percent of employment in white-collar jobs               |
+| PctU20000      | Percent of families with income under \$20,000           |
+| Hydrocarbons   | Relative pollution potential of hydrocarbons             |
+| Nitrogen       | Relative pollution potential of oxides in nitrogen       |
+| SO2            | Relative pollution potential of oxides in sulfur dioxide |
+| RelHumid       | Annual average relative humidity                         |
+| AAMort         | Age-adjusted mortality                                   |
+
+The goal of this analysis is to determine which, if any, of the above environmental and socioeconomic variables contributed to the mortality rate.
+
+Do the following:
+
+1.  Download the "EnvironmentalImpacts.txt" file from Canvas and put it in the same folder as this quarto file.
+2.  Read in the data set, call it "env", and look at the first few rows.
+
+```{r}
+env <- read.table("EnvironmentalImpacts.txt",header = TRUE)[,-1] # [,-1] removes the first column of this dataset that identifies rows
+head(env)
+```
+
+## In this exercise we'll be learning how to set up a cross validation study. To begin with, let's familiarize ourselves with the data set. Perform some initial EDA by visualizing the correlation matrix.
+
+```{r, fig.align='center'}
+corrplot(cor(env))
+```
+
+We can further assess multicollinearity by looking at VIFs. \## Fit a multiple linear regression model using all variables in the data set. Look at a summary of the results, and compute VIFs.
+
+```{r, fig.align='center'}
+full_mod <- lm(AAMort ~ ., data = env)
+summary(full_mod)
+vif(full_mod)
+```
+
+## Using the information from the correlation matrix, VIFs, initial model fit, and your own intuition, propose 3 candidate models that could be used to assess the association between environmental factors and mortality. For right now, don't worry too much about proposing the best possible models, just try to come up with three that seem reasonable. The primary purpose of this exercise is to learn how to evaluate and compare the out-of-sample performance of different models.
+
+Given that there are only 60 observations in this dataset, we probably can't use all 15 potential predictor variables in a regression model. (Recall the rule of thumb that we should try to have 10 observations for every parameter we are trying to estimate.)
+
+```{r}
+mod1 <- lm(AAMort ~ ., data = env)
+# mod2 <- lm(AAMort ~ ??? + ??? + ??? + ..., data = env)
+# mod3 <- lm(AAMort ~ ??? + ??? + ??? + ..., data = env)
+```
+
+## Lets quickly evaluate in-sample performance of each of these models and the full model by comparing each of their adjusted-R\^2s, AICs, and BICs. Do any of the models stand out based on these metrics?
+
+```{r}
+# summary(mod1)$adj.r.squared
+# summary(mod2)$adj.r.squared
+# summary(mod3)$adj.r.squared
+# summary(full_mod)$adj.r.squared
+# 
+# AIC(mod1)
+# AIC(mod2)
+# AIC(mod3)
+# AIC(full_mod)
+# 
+# BIC(mod1)
+# BIC(mod2)
+# BIC(mod3)
+# BIC(full_mod)
+```
+
+Normally, we would want to check each candidate model to make sure that it satisfies the regression assumptions, but for now let's skip ahead and go to the cross-validation study, comparing the out-of-sample performance of each of these models.
+
+## Begin by initializing the vectors we will use to record our cross-validation metrics
+
+```{r}
+# B <- 1000 # B is the number of test/training splits we'll use
+# 
+# mod1_mse <- rep(NA, B)
+# mod1_bias <- rep(NA, B)
+# 
+# # create the mse and bias vectors for the other two candidate models and the full model
+```
+
+## In order to run a cross-validation study we will need to create random splits of our data set.
+
+(Note that there a multiple ways that you could code this in R.)
+
+```{r}
+# n <- nrow(env)
+# test_indx <- sample(1:n, floor(.2*n)) # this function will be used to take 20% of the rows from the data at random to use for our test data. We use 20% here (rather than 50% or some other amount) as the data is small to begin with and we want sufficient observations to fit our model using the training data.
+# 
+# test_data <- env[test_indx,]
+# train_data <- env[-test_indx,]
+```
+
+## Fit each model to the training data, then use that fitted model to get predictions on the test data
+
+```{r}
+# train_mod1 <- lm(AAMort ~ ??? + ??? + ??? + ..., data = train_data)
+# train_mod2 <- ...
+# train_mod3 <- ...
+# train_full <- ...
+# 
+# pred_mod1 <- predict(train_mod1, newdata = test_data)
+# pred_mod2 <- ...
+# pred_mod3 <- ...
+# pred_full <- ...
+```
+
+## Assess the predictive bias and mean square error of you predictions from each model
+
+```{r}
+# mod1_bias[1] = mean(pred_full - test_data$AAMort)
+# mod1_mse[1] = mean((pred_full - test_data$AAMort)^2)
+# 
+# # compute for all other models
+```
+
+## We've evaluated our models for a single test-training split, but in order to get a more robust measure of model performance, we should evaluate these models across lots of test-training splits. To do this, let's use all of the pieces of code we just wrote within a loop
+
+```{r}
+#for (b in 1:B) {
+#   # Define the test/training split
+#   
+#   # Fit each model using the training data
+#   
+#   # Get predictions for the test data using each of the models fit to the training data
+#   
+#   # Evaluate the bias and MSE of your predictions (save these statistics to the vectors you initialized and don't forget to update your index with 'b')
+# }
+```
+
+## Now that we've run our cross validation study, we can get the final results by averaging the vectors we stored our model biases and PMSEs in
+
+```{r}
+# results <- matrix(c(mean(mod1_mse), mean(mod2_mse), mean(mod3_mse), mean(full_mse),
+#                    mean(mod1_bias), mean(mod2_bias), mean(mod3_bias), mean(full_bias)), 
+#                   nrow = 4, ncol = 2)
+# rownames(results) <- c('Mod 1', 'Mod 2', 'Mod 3', 'Full')
+# colnames(results) <- c('PMSE', 'Bias')
+# results
+```
+
+## Which model to we prefer from these results? Do they match what we would have chosen based on the in-sample measures of performance? Do we think we could have proposed models that would have done better? Model development (experimenting with different configurations and combinations of predictor variables and transformations) is often the most time consuming element of a statistician's job.

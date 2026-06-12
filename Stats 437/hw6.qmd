@@ -1,0 +1,363 @@
+---
+title: "Homework 6: Ordinal & Count Models"
+author: "Stat 437 — Philip White"
+format: pdf
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ordinal)   # clm()
+library(MASS)      # glm.nb(), quine
+library(broom)
+library(AER)       # dispersiontest
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Homework — Overview
+
+This assignment has two parts:
+
+-   **Part A (Ordinal outcomes)** — Cumulative logit modeling\
+-   **Part B (Count outcomes)** — Poisson and Negative Binomial regression
+
+Work independently.
+
+Submit a single `.qmd` and rendered PDF containing: - All code - All outputs - Short written answers (concise but clear)
+
+Total: **50 points**
+
+------------------------------------------------------------------------
+
+# Part A — Ordinal Outcomes (25 points)
+
+We use the `wine` dataset from the `ordinal` package.
+
+This dataset contains:
+
+-   `rating` (ordered outcome: 1–5)
+-   `response` (scoring of wine bitterness 0-100)
+-   `temp` (serving temperature)
+-   `contact` (whether wine had skin contact)
+-   `judge` (wine judge ID)
+
+## Data Preparation
+
+```{r}
+data("wine", package = "ordinal")
+glimpse(wine)
+table(wine$rating)
+```
+
+## A1. Exploratory Analysis (4 points)
+
+1.  Create boxplot of `response` by `rating`.
+
+```{r}
+boxplot(response ~ rating, data = wine)
+```
+
+2.  Does the variable appear monotonic across ordered categories?
+
+Yes it does, there is a very strong positive relationship between rating and response.
+
+3.  Explore relationships between categorical predictors `judge`, `temp`, and `contact` and the response `rating`.
+
+```{r}
+### use code like this
+ggplot(wine, aes(x = temp, fill = rating)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format())
+```
+
+```{r}
+contact_wine <- wine[wine$contact == "yes",]
+noncontact_wine <- wine[wine$contact == "no",]
+hist(as.numeric(contact_wine$response))
+hist(as.numeric(noncontact_wine$response))
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(wine, aes(x = judge, y = as.numeric(rating))) +
+  stat_summary(fun = mean, geom = "bar") +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2)
+```
+
+4.  What do you notice about the relationships between `rating` relationships with categorical variables?
+
+I noticed that rating was influenced heavily by temperature, all of the ratings of 1 belonged to the cold group and all of the ratings of 5 belonged to the warm group. I also noticed that the ratings were very dependent on the judge, some judges were way more forgiving than others.
+
+------------------------------------------------------------------------
+
+## A2. Baseline CLM
+
+Fit a proportional odds model:
+
+```{r}
+fit_clm_base <- clm(
+  rating ~ temp + contact,
+  data = wine,
+)
+
+summary(fit_clm_base)
+```
+
+Answer:
+
+1.  Report exponentiated coefficients (cumulative ORs).
+
+```{r}
+exp(coef(fit_clm_base))
+```
+
+2.  Interpret the both exponentiated coefficients in plain language. Interpretation must reference cumulative odds.
+
+This output means that there is an association between warm temperature and a times 12.22 increase in the cumulative odds at any of the thresholds holding all else constant. We can also see that skin contact multiplies the cumulative odds by 4.61 at any of the thresholds, all else being held constant.
+
+2.  What does “proportional odds” mean here?
+
+Proportional odds means that we're assuming that increases in the value of tempwarm or contactyes will affect the cumulative odds at each of the thresholds in the same way, namely by multiplying them all by the same number.
+
+------------------------------------------------------------------------
+
+## A3. More complex model
+
+```{r}
+fit_clm_complex <- clm(
+  rating ~ temp + contact + judge,
+  data = wine,
+)
+
+summary(fit_clm_complex)
+```
+
+Answer:
+
+1.  Explore whether the more complex model is better than the base model. Justify you approach.
+
+```{r}
+AIC(fit_clm_base, fit_clm_complex)
+BIC(fit_clm_base, fit_clm_complex)
+```
+
+I decided to look at both AIC and BIC to see what they each said and whether they agreed with each other, I'm glad that I did because both of them were very strongly in favor of the complex model, even though it has a higher k.
+
+------------------------------------------------------------------------
+
+## A4. Predicted Probabilities
+
+1.  Compute predicted probabilities for `temp = warm` and `contact = no` for all judges using `fit_clm_complex`.
+
+```{r}
+# Generate prediction grid
+newdat <- expand.grid(
+  judge = as.factor(seq(1, 5, by = 1)),
+  temp = "warm",
+  contact = "no"
+)
+
+# Compute predicted probabilities
+preds <- predict(fit_clm_complex, newdata = newdat, type = "prob")$fit
+
+pred_df <- cbind(newdat, preds) %>%
+  tidyr::pivot_longer(
+    -names(newdat),
+    names_to = "category",
+    values_to = "prob"
+  )
+
+```
+
+2.  Compare and explain the difference in probabilities for the first two judges using `fit_clm_complex`. Explain using model output.
+
+```{r}
+pred_df[pred_df$judge %in% c("1", "2"), ]
+```
+
+We can see that the model is predicting that judge 2 is going to be a harsher critic than judge 1. We can see that in the category for each that has the highest probability. The model predicts that judge 1 will be most likely to give a warm wine with no skin contact a rating of 4 while judge 2 would be the most likely to give it a 3.
+
+------------------------------------------------------------------------
+
+## A5. Proportional Odds Assumption
+
+For the base model, test the proportional odds assumption:
+
+```{r}
+nominal_test(fit_clm_base)
+```
+
+Does the test suggest violation of the PO assumption?
+
+It looks like the proportional odds assumption is probably violated for all of the explanatory variables, and so we should probably consider alternatives if available.
+
+------------------------------------------------------------------------
+
+## A6. Conceptual Question
+
+In the cumulative logit model, the coefficient for contact applies to all cutpoints simultaneously. Explain in 2–3 sentences what this means for the probability of moving from: - 1 → 2 - 3 → 4 - 4 → 5
+
+This means that the coefficient will apply to all of the cutpoints in the same way. It will describe the log odds ratio of being above the cutpoint as opposed to below the cutpoint.
+
+------------------------------------------------------------------------
+
+# Part B — Count Models (25 points)
+
+The `quine` dataset comes from the `MASS` package and records school absenteeism counts for children in Australia.
+
+Each observation represents a student-year record, and the response variable measures how many days the student was absent from school.
+
+The data were originally used to study whether absenteeism differed across demographic groups and school programs.
+
+```{r}
+data("quine", package = "MASS")
+glimpse(quine)
+```
+
+Outcome Variable - Days Number of days the student was absent from school during the year.
+
+This is a count outcome: - Non-negative integers - Often skewed - Variance may exceed the mean
+
+This makes it a natural candidate for Poisson or Negative Binomial regression.
+
+Predictor Variables
+
+-   Eth — Ethnicity of the student
+    -   A = Aboriginal
+    -   N = Non-Aboriginal
+-   Sex — Student sex
+    -   F = Female
+    -   M = Male
+-   Age — Age group of the student
+    -   F0 = youngest group
+    -   F1 = middle group
+    -   F2 = oldest group
+-   Lrn — Learning status
+    -   SL = slow learner
+    -   AL = average learner
+
+------------------------------------------------------------------------
+
+## B1. Descriptive Check
+
+1.  Compute mean and variance of `Days`.
+
+```{r}
+mean(quine$Days)
+var(quine$Days)
+```
+
+2.  Plot histogram of `Days`.
+
+```{r}
+hist(quine$Days)
+```
+
+3.  Is variance larger than mean?
+
+Yes, the variance is quite a bit larger than the mean.
+
+------------------------------------------------------------------------
+
+## B2. Poisson Regression
+
+```{r}
+fit_pois <- glm(
+  Days ~ Eth + Age + Sex + Lrn,
+  data = quine,
+  family = poisson
+)
+
+summary(fit_pois)
+```
+
+1.  Report exponentiated coefficients (IRRs).
+
+```{r}
+exp(coef(fit_pois))
+```
+
+2.  Interpret one IRR in plain language.
+
+The coefficient for ethnicity (EthN) tells us that being non-aboriginal is associated with having 0.5865 times as many absences than students that are aboriginal.
+
+3.  Compute dispersion statistic:
+
+```{r}
+deviance(fit_pois) / df.residual(fit_pois)
+```
+
+4.  Run:
+
+```{r}
+dispersiontest(fit_pois)
+```
+
+5.  Is overdispersion present? Explain what the result means?
+
+Overdispersion is actually present in this case, which means that the outcomes of our poisson regression will fall prey to underestimated standard errors. This would mean critical values would be estimated to be too big and the associated p values would be too small.
+
+------------------------------------------------------------------------
+
+## B3. Negative Binomial
+
+```{r}
+fit_nb <- glm.nb(
+  Days ~ Eth + Age + Sex + Lrn,
+  data = quine
+)
+
+summary(fit_nb)
+```
+
+1.  Compare IRRs to Poisson.
+
+```{r}
+exp(coef(fit_nb))
+exp(coef(fit_pois))
+```
+
+The IRRs are slightly smaller in the negative binomial model compared to the poisson model.
+
+2.  Compare AIC:
+
+```{r}
+AIC(fit_pois, fit_nb)
+```
+
+3.  Which model is preferred? Why (please go beyond saying AIC is lower)?
+
+The AIC is a lot lower, but we should also consider how the overdispersion assumption wasn't met for the Poisson regression, meaning that we can't trust the IIRs that it gave us. The negative binomial model doesn't have this assumption so we can trust it a lot more.
+
+4.  If the AICs for the two models were the same, which would you prefer? Why?
+
+If the AICs were the same, I would still prefer the negative binomial regression, but the same reasons specified above. I want to be able to accurately interpret my model and so I need a model that's assumptions are being met so that all of the proceeding statistics are correct and reliable.
+
+------------------------------------------------------------------------
+
+## B4. Predicted Counts
+
+1.  Predict counts for two student profiles.
+
+```{r}
+newdat <- data.frame(
+  Eth = "N",
+  Sex = c("M", "F"),
+  Age = "F3",
+  Lrn = "SL"
+)
+
+predict(fit_nb, newdata = newdat)
+```
+
+2.  Interpret and explain the difference in expected absences.
+
+I compared two slow learners in the highest age category that were not aboriginals and found that a male student was predicted to have 3.057 absences while the female student was predicted to have 2.974 absences.
+
+3.  Why would ignoring overdispersion distort inference?
+
+Ignoring overdispersion would distort interference because the poisson distribution itself is such that the variance and the mean are always the same. If you use that distribution to model your data and your data's mean and variance are different, then fitting a poisson distribution to the data won't totally work because the actual data has a greater variance than the poisson distribution that is being fit to it is said to have. When you use this to calculate critical values and p values, they will in turn be larger and smaller respectively, because modeling the data as having less variance than it actually has and then using that for a hypothesis test will create more significance and reject the null more often than it should.

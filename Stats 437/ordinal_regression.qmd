@@ -1,0 +1,551 @@
+---
+title: "Ordinal Outcomes: Cumulative Logit Models — NHANES Health Status Lab"
+subtitle: "Using `NHANES::NHANES` and `HealthGen` as an ordinal outcome"
+author: "Philip White"
+format:
+  revealjs:
+    slide-number: true
+    incremental: true
+    theme: serif
+    css: slides.css
+    scrollable: true
+    margin: 0
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+# Minimal packages used in the deck
+library(tidyverse)
+library(NHANES)    # CRAN package with NHANES sample dataset
+library(ordinal)   # clm()
+library(broom)
+library(patchwork)
+library(scales)
+theme_set(theme_minimal(base_size = 14))
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Learning goals
+
+-   Define the cumulative logit (proportional odds) model and interpret its coefficients.
+-   Understand why `HealthGen` is an ordinal outcome and why that matters.
+-   Fit a CLM with `ordinal::clm()` and interpret coefficients (cumulative ORs).
+-   Check the proportional odds assumption and consider alternatives.
+-   Compare models with LRT / AIC / BIC and visualize predicted probabilities.
+-   Optional: brief explanation of NHANES sampling weights and how they'd be used.
+
+------------------------------------------------------------------------
+
+## Logistic Regression (Binary Outcome)
+
+For a binary outcome $Y \in \{0,1\}$, $Y\overset{ind}{\sim}Bern(p_i)$:
+
+$$
+\log\!\left(\frac{p_i}{1-p_i}\right)
+=
+\beta_0 + X_i^\top \beta
+$$
+
+------------------------------------------------------------------------
+
+## Logistic Regression via a Latent Variable
+
+-   A useful way to think about logistic regression for binary outcomes: Assume an unobserved continuous variable $S_i = X_i^\top \beta + \varepsilon_i,$ where $\varepsilon_i$ follows a logistic distribution.
+
+-   We don't observe the score but observe: $$
+    Y_i =
+    \begin{cases}
+    1 & \text{if } S_i > 0 \\
+    0 & \text{if } S_i \le 0
+    \end{cases}
+    $$
+
+-   So: $$
+    P(Y_i = 1)
+    =
+    P(S_i > 0)
+    =
+    P(\varepsilon_i > -X_i^\top \beta) = \frac{e^{X_i^\top \beta}}{1 + e^{X_i^\top \beta}},
+    $$ which is the same as logistic regression.
+
+-   Binary logistic regression = a continuous latent variable with a **single cutpoint at 0**.
+
+------------------------------------------------------------------------
+
+## Logistic Regression via a Latent Variable (Visualization)
+
+```{r, fig.width=11, fig.height=6.5, dpi=150, dev='png', out.width='100%', echo=FALSE}
+
+# Create latent variable grid
+x <- seq(-6, 6, length.out = 400)
+
+# Logistic density (for illustration)
+logistic_density <- dlogis(x)
+
+df_latent <- data.frame(x = x, density = logistic_density)
+
+ggplot(df_latent, aes(x = x, y = density)) +
+  geom_line(size = 1.1) +
+  geom_area(data = subset(df_latent, x > 0),
+            aes(x = x, y = density),
+            fill = "steelblue",
+            alpha = 0.4) +
+  geom_vline(xintercept = 0, linetype = "dashed", size = 1) +
+  labs(
+    title = "Latent Variable Interpretation of Logistic Regression",
+    x = "Latent score  S = X^Tβ + ε",
+    y = "Density"
+  ) +
+  annotate("text", x = 2.5, y = 0.15,
+           label = "Y = 1\n(S > 0)",
+           size = 4) +
+  annotate("text", x = -2.5, y = 0.15,
+           label = "Y = 0\n(S ≤ 0)",
+           size = 4) +
+  theme_minimal(base_size = 14)
+```
+
+------------------------------------------------------------------------
+
+## Cumulative logit model: mathematical statement
+
+For ordered categories **Poor → Fair → Good → Vgood → Excellent**:
+
+$$
+\log\!\left(\frac{P(Y \le k)}{P(Y > k)}\right)
+=
+\theta_k - X^\top \beta
+\quad (k = 1,\dots,K-1)
+$$
+
+Equivalently,
+
+$$
+\log\!\left(\frac{P(Y > k)}{P(Y \le k)}\right)
+=
+X^\top \beta - \theta_k
+$$
+
+### Interpretation
+
+-   $\exp(\beta_j)$ is the multiplicative change in the odds of being in a **higher (better) health category** for a one-unit increase in $X_j$.
+
+-   The effect is the same across all thresholds $k$ (Proportional Odds Assumption).
+
+-   **Key assumption (Proportional Odds).** The same vector $\boldsymbol{\beta}$ applies for every cut $k$. That is, covariate effects shift the latent score equally across all thresholds. Check this assumption in practice (e.g., tests or graphical diagnostics).
+
+------------------------------------------------------------------------
+
+## Latent-Variable Visualization — 5 Ordered Categories (Poor → Excellent)
+
+```{r, fig.width=11, fig.height=6.5, dpi=150, dev='png', out.width='100%', echo=FALSE}
+
+# --- Parameters: adjust these cutpoints to see different mappings ---
+cutpoints <- c(-3.77, -1.7, 0.2, 2.02)   # four thresholds -> five categories
+cat_labels <- c("Poor", "Fair", "Good", "Vgood", "Excellent")
+
+# Grid for latent variable (logistic latent)
+x <- seq(-6, 6, length.out = 2000)
+dens <- dlogis(x)   # logistic density
+
+df <- data.frame(x = x, dens = dens)
+
+# Build intervals for shading
+breaks <- c(-Inf, cutpoints, Inf)
+region_id <- cut(df$x, breaks = breaks, labels = FALSE, right = FALSE)
+df$region <- factor(region_id, levels = 1:length(breaks)-1)
+
+# Colors for five categories
+fills <- c("#d73027","#fc8d59","#fee08b","#91bfdb","#1a9850") # red -> green ramp
+
+# Compute implied probabilities (area under logistic CDF)
+F <- plogis
+probs <- numeric(length(breaks)-1)
+for (k in 1:(length(breaks)-1)) {
+  left <- breaks[k]
+  right <- breaks[k+1]
+  # Use CDF differences; handle -Inf/Inf
+  pl <- if (is.infinite(left) && left < 0) 0 else F(left)
+  pr <- if (is.infinite(right) && right > 0) 1 else F(right)
+  probs[k] <- pr - pl
+}
+names(probs) <- cat_labels
+
+# Midpoints for labels (x positions)
+mid_x <- sapply(1:(length(breaks)-1), function(k) {
+  lx <- max(df$x[df$region == k])
+  rx <- min(df$x[df$region == k])
+  mean(c(lx, rx))
+})
+# if any regions empty because of coarse grid, fallback to cutpoint centers:
+mid_x[is.na(mid_x)] <- c(-3, (cutpoints[-length(cutpoints)] + cutpoints[-1]) / 2, 3)[is.na(mid_x)]
+
+# Plot
+p <- ggplot(df, aes(x = x, y = dens, fill = region)) +
+  geom_area(data = subset(df, region == 1), aes(x = x, y = dens), inherit.aes = TRUE) +
+  geom_area(data = subset(df, region == 2), aes(x = x, y = dens), inherit.aes = TRUE) +
+  geom_area(data = subset(df, region == 3), aes(x = x, y = dens), inherit.aes = TRUE) +
+  geom_area(data = subset(df, region == 4), aes(x = x, y = dens), inherit.aes = TRUE) +
+  geom_area(data = subset(df, region == 5), aes(x = x, y = dens), inherit.aes = TRUE) +
+  scale_fill_manual(values = fills, guide = "none") +
+  geom_line(color = "black", size = 0.6) +
+  geom_vline(xintercept = cutpoints, linetype = "dashed", size = 0.6) +
+  labs(
+    title = "Latent Variable Interpretation — Ordered Outcome (5 levels)",
+    x = expression(S == X^T * beta + epsilon),
+    y = "Density",
+    subtitle = paste0("Cutpoints: ", paste0(format(cutpoints, digits=2), collapse = ", "),
+                      "  —  Implied probs: ",
+                      paste0(cat_labels, ": ", sprintf("%.3f", probs), collapse = " | "))
+  ) +
+  theme_minimal(base_size = 13)
+
+# add category labels centered in each shaded region
+lbl_df <- data.frame(
+  x = mid_x,
+  y = max(df$dens) * 0.65,
+  label = paste0(cat_labels, "\n(", sprintf("%.2f", probs), ")")
+)
+
+p + geom_text(
+  data = lbl_df,
+  aes(x = x, y = y, label = label),
+  inherit.aes = FALSE,
+  size = 3.5,
+  color = "black",
+  fontface = "bold",
+  lineheight = 0.9
+)
+```
+
+------------------------------------------------------------------------
+
+## Interpretation
+
+-   The latent score $S = X^\top \beta + \varepsilon$ (with $\varepsilon$ following a logistic distribution) is partitioned by thresholds $\theta_1, \dots, \theta_4$ into five observed categories.
+
+-   Category probabilities equal the logistic CDF differences corresponding to the regions between successive thresholds (shown in the subtitle and under each label in the figure).
+
+-   Moving $X$ (or equivalently changing $\beta$) shifts the latent distribution, thereby changing the areas (probabilities) in each region.
+
+-   The cumulative logit model parameterizes the **log-odds of being at or below** each cutpoint: $$\log\left( \frac{P(Y \le k)}{P(Y > k)} \right)=\theta_k - X^\top \beta .$$
+
+-   Equivalently, the log-odds of being **above** the cutpoint are: $$\log\left( \frac{P(Y > k)}{P(Y \le k)} \right)=X^\top \beta - \theta_k .$$
+
+------------------------------------------------------------------------
+
+## About the data: NHANES (package)
+
+We use the `NHANES` package's example dataset (a tidy subset of NHANES suitable for teaching).
+
+-   Outcome: `HealthGen` — self-rated general health (Excellent → Poor).
+-   Candidate predictors: BMI, Age, Diabetes status (self-reported), Physical activity indicator, Sex, and Poverty
+
+------------------------------------------------------------------------
+
+## Inspect available columns and preview data
+
+```{r}
+# Inspect NHANES dataset included in the package
+data("NHANES")   # loads NHANES tibble from the package
+glimpse(NHANES, width = 60)
+
+wanted <- c("HealthGen", "BMI", "Age", "Diabetes", "PhysActive","Poverty","SmokeNow","MaritalStatus","Education")
+
+```
+
+------------------------------------------------------------------------
+
+## Create a working analysis dataset
+
+```{r}
+NHANES_work <- NHANES %>%
+  dplyr::select(all_of(wanted)) %>% 
+  mutate(
+    HealthGen = factor(HealthGen,
+                       levels = c("Poor","Fair","Good","Vgood","Excellent"),
+                       ordered = TRUE)
+  ) %>% 
+    filter(complete.cases(.))
+
+NHANES_work$MaritalStatus = fct_relevel(NHANES_work$MaritalStatus,"Married")
+NHANES_work$Education = fct_relevel(NHANES_work$Education,"8th Grade")
+
+# Quick summary
+glimpse(NHANES_work)
+table(NHANES_work$HealthGen)
+```
+
+------------------------------------------------------------------------
+
+## Continuous Exploratory Plot
+
+```{r, fig.width=11, fig.height=6.5, dpi=150, dev='png', out.width='100%', echo=FALSE}
+# --- Slide 1: Continuous predictors (boxplots by HealthGen) ---
+p_bmi <- ggplot(NHANES_work, aes(x = HealthGen, y = BMI)) +
+  geom_boxplot(fill = "cornflowerblue", outlier.size = 0.6) +
+  labs(title = "BMI by Self-Reported Health (HealthGen)", x = NULL, y = "BMI") +
+  theme(axis.text.x = element_text(angle = 18, hjust = 1))
+
+p_age <- ggplot(NHANES_work, aes(x = HealthGen, y = Age)) +
+  geom_boxplot(fill = "lightseagreen", outlier.size = 0.6) +
+  labs(title = "Age by Self-Reported Health", x = NULL, y = "Age (years)") +
+  theme(axis.text.x = element_text(angle = 18, hjust = 1))
+
+p_pov <- ggplot(NHANES_work, aes(x = HealthGen, y = Poverty)) +
+  geom_boxplot(fill = "plum", outlier.size = 0.6) +
+  labs(title = "Poverty Index by Self-Reported Health", x = NULL, y = "Poverty Ratio/Score") +
+  theme(axis.text.x = element_text(angle = 18, hjust = 1))
+
+slide1_plot <- (p_bmi + p_age + p_pov) + plot_layout(heights = c(1,1))
+print(slide1_plot)
+
+
+```
+
+------------------------------------------------------------------------
+
+## Categorical Exploratory Plot
+
+```{r, fig.width=11, fig.height=6.5, dpi=150, dev='png', out.width='100%', echo=FALSE}
+# --- Slide 2: Categorical predictors (proportion within HealthGen) ---
+
+# Diabetes vs HealthGen (proportion)
+p_diab <- ggplot(NHANES_work,
+                 aes(x = HealthGen,
+                     fill = as.factor(Diabetes))) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = "HealthGen by Diabetes (Proportion)",
+       x = NULL,
+       y = "Proportion within HealthGen",
+       fill = "Diabetes") +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1))
+
+# Physical Activity vs HealthGen (proportion)
+p_phys <- ggplot(NHANES_work,
+                 aes(x = HealthGen,
+                     fill = as.factor(PhysActive))) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = "HealthGen by Physical Activity (Proportion)",
+       x = NULL,
+       y = "Proportion within HealthGen",
+       fill = "PhysActive") +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1))
+
+# Arrange in 1x2 grid
+out_cat = (p_diab + p_phys) +
+  plot_annotation(title = "Categorical Predictors by Self-Reported Health (Normalized)")
+
+print(out_cat)
+```
+
+------------------------------------------------------------------------
+
+## Does ordered structure make sense?
+
+-   `HealthGen` has natural ordering (Poor → Excellent).\
+
+-   Using ordinal model preserves that ordering and gains statistical efficiency vs multinomial model.
+
+-   Group prompt: Why don't we just turn `HealthGen` into a continuous variable?
+
+    -   Are the jumps between Poor→Fair the same as Good→Very Good?
+
+------------------------------------------------------------------------
+
+## Fit a baseline CLM (simple)
+
+```{r}
+
+
+fit_clm_base <- clm(HealthGen ~ BMI + Age + Diabetes + PhysActive + Poverty,
+                    data = NHANES_work,
+                    link = "logit",
+                    Hess = TRUE)
+
+summary(fit_clm_base)
+```
+
+------------------------------------------------------------------------
+
+## Coefficient table and interpretation
+
+```{r}
+tidy(fit_clm_base, conf.int = TRUE)
+```
+
+-   Each coefficient is a *cumulative* log-odds effect. The change in the log-odds of being in a higher group, holding the other variables constant.
+
+-   $e^{\beta}$ = multiplicative change in odds of being in a **better** health category per unit increase in predictor, holding other variables constant.
+
+-   $100\times(e^{\beta}-1)$ = percent change in odds of being in a **better** health category per unit increase in predictor, holding other variables constant.
+
+-   Example interpretation (fill in with your fitted values):
+
+> -   A one-unit increase in BMI is associated with a x% higher odds of reporting better health (holding other predictors constant).
+
+------------------------------------------------------------------------
+
+## Predicted probabilities: example visualization
+
+::: panel-tabset
+### Code
+
+```{r}
+# Generate prediction grid
+newdat <- expand.grid(
+  BMI = seq(18, 40, by = 0.5),
+  Age = median(NHANES_work$Age, na.rm = TRUE),
+  Diabetes = "Yes",
+  PhysActive = "Yes",
+  Poverty = median(NHANES_work$Poverty, na.rm = TRUE)
+)
+
+# Compute predicted probabilities
+preds <- predict(fit_clm_base, newdata = newdat, type = "prob")$fit
+
+pred_df <- cbind(newdat, preds) %>%
+  tidyr::pivot_longer(
+    -names(newdat),
+    names_to = "category",
+    values_to = "prob"
+  )
+
+head(pred_df)
+```
+
+### Plot
+
+```{r, echo=FALSE, fig.width=11, fig.height=6.5, dpi=150, dev='png', out.width='100%'}
+ggplot(pred_df, aes(x = BMI, y = prob, color = category)) +
+  geom_line(size = 1.2) +
+  labs(
+    title = "Predicted HealthGen Probabilities vs BMI",
+    y = "Predicted probability",
+    x = "BMI"
+  ) +
+  theme_minimal(base_size = 16)
+```
+:::
+
+------------------------------------------------------------------------
+
+## Competing Model
+
+```{r}
+fit_clm_complex <- clm(HealthGen ~ BMI + Age + Diabetes + PhysActive + 
+                      Poverty + SmokeNow + MaritalStatus + Education,
+                    data = NHANES_work,
+                    link = "logit",
+                    Hess = TRUE)
+summary(fit_clm_complex)
+```
+
+------------------------------------------------------------------------
+
+## Model comparison: nested models and LRT
+
+Compare a the more complex model to the base model:
+
+```{r}
+anova(fit_clm_base,fit_clm_complex)
+```
+
+-   LRT tests whether `SmokeNow + MaritalStatus + Education` adds explanatory power (assuming nested models).
+
+------------------------------------------------------------------------
+
+## AIC / BIC for model selection
+
+```{r}
+AIC(fit_clm_base,fit_clm_complex)
+BIC(fit_clm_base,fit_clm_complex)
+```
+
+-   Lower AIC/BIC indicates preferable model (trade-off between fit and complexity).
+-   AIC usually preferred for predictive focus; BIC penalizes complexity more.
+
+------------------------------------------------------------------------
+
+## Cross-validation (conceptual notes)
+
+-   K-fold CV or repeated CV gives an empirical estimate of predictive performance.
+-   For ordinal outcomes, deviance or log-loss (negative log-likelihood) can be used as scoring metric; probability-based scoring is preferred over accuracy.
+
+Example (conceptual code sketch — not executed here):
+
+```{r}
+# Pseudocode: (do not run as-is)
+# for (fold in folds) {
+#   train <- data[fold != k, ]
+#   test  <- data[fold == k, ]
+#   fit <- clm(..., data = train)
+#   preds <- predict(fit, newdata = test, type = "prob")
+#   compute log-loss or deviance on test
+# }
+```
+
+------------------------------------------------------------------------
+
+## Proportional odds assumption
+
+-   The model assumes the effect of a predictor is the same across all cumulative logits.
+-   If violated, a single $\beta$ is not appropriate to control movement across ordinal bins.
+
+Check with a nominal test:
+
+```{r}
+nominal_test(fit_clm_complex)
+```
+
+Interpretation:
+
+-   Large p-value: PO assumption not rejected → CLM plausible.
+-   Small p-value: PO assumption may be violated; consider alternatives.
+
+------------------------------------------------------------------------
+
+## If PO assumption fails — options
+
+1.  Partial proportional odds models (Add nominal effects for some variables)
+2.  Adjacent-category or continuation-ratio models\
+3.  Multinomial logistic regression (no ordering used)
+
+Discuss trade-offs: interpretability vs flexibility.
+
+------------------------------------------------------------------------
+
+## Lab: group exercise (open-ended)
+
+In groups (30–45 minutes):
+
+1.  Fit a baseline CLM (like above).
+2.  Explore nonlinearity for BMI (e.g., `poly(BMI,2)`, `ns(BMI, df=4)`), compare with AIC/LRT.
+3.  Test interactions you think make sense (e.g., `Sex_f:BMI`, `Age:PhysAct_f`) and interpret.
+4.  Check proportional odds assumption.
+5.  Choose a final model and justify (interpret 2 coefficients in plain language).
+6.  Plot predicted probabilities for two contrasting profiles and discuss.
+
+------------------------------------------------------------------------
+
+## Discussion prompts
+
+-   Does accounting for ordering change conclusions vs treating health as categorical?
+-   How would sampling weights change the questions you answer?
+-   Which predictors appear most clinically relevant?
+-   When would you prefer a multinomial model despite losing efficiency?
+
+------------------------------------------------------------------------
+
+## Takeaways
+
+-   `HealthGen` is a classic ordinal outcome — CLM is a natural model.
+-   Interpret coefficients as cumulative odds ratios.
+-   Always check the proportional odds assumption.
+-   Model selection requires balancing predictive performance and interpretability.
+-   Visualizing predicted probabilities is essential for communicating results.

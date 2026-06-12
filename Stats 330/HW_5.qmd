@@ -1,0 +1,299 @@
+---
+title: "Homework 5"
+subtitle: Multiple Linear Regression Variable Selection Methods
+author: Marshall Nielsen 
+format: 
+  html:
+    embed-resources: true 
+---
+
+```{r setup, include=FALSE}
+# Load packages here
+library(bestglm)
+library(tidyverse)
+library(ggfortify)
+library(glmnet)
+library(patchwork)
+library(car)
+set.seed(42)
+```
+
+## Data and Description
+
+**For this assignment, we are revisiting the dataset used in Homework 4. It would be beneficial to review your Homework 4 before starting this one.**
+
+Measuring body fat is not simple. One method requires submerging the body underwater in a tank and measuring the increase in water level. A simpler method for estimating body fat would be preferred. In order to develop such a method, researchers recorded age (years), weight (pounds), height (inches), and three body circumference measurements (around the neck, chest, and abdomen, all in centimeters) for 252 men. Each man's percentage of body fat was accurately estimated using an underwater weighing technique (the variable `brozek` represents the percentage of body fat). The goal is to create a model that can accurately predict body fat percentage using only these recorded variables, avoiding the need for the tank submersion method.
+
+The data can be found in the **BodyFat** dataset on Canvas. Download `BodyFat.txt` and place it in the same folder as this R Markdown file.
+
+### Setup
+
+#### 0a. Replace the text `< PUT YOUR NAME HERE >` (above next to "author:") with your full name.
+
+#### 0b. Set your seed since some functions randomly split your data (use `set.seed()` in the setup code chunk above).
+
+#### 1. Data Preparation
+
+Read in the dataset and name the data frame `bodyfat_orig`. Print a summary of the data and verify that it makes sense.\
+- **Remove** the `"row"` column (which contains row numbers) from the dataset.\
+- Ensure the class of `bodyfat_orig` is a *data.frame* only, not a tibble.
+
+```{r}
+bodyfat_orig <- read.table("BodyFat.txt", header = TRUE)
+bodyfat_orig <- select(bodyfat_orig, -row)
+summary(bodyfat_orig)
+```
+
+#### 2. Handling Influential Points
+
+There is one clear influential point in the dataset.\
+- Create a new data frame called `bodyfat` that contains the `bodyfat_orig` data frame with the influential point removed.\
+- Use the `bodyfat` data frame (not `bodyfat_orig`) throughout the rest of the assignment.
+
+```{r, fig.align='center'}
+lm <- lm(brozek ~ ., data = bodyfat_orig)
+autoplot(lm, which = 4)
+```
+
+```{r}
+bodyfat <- bodyfat_orig[-39,]
+lm <- lm(brozek ~ ., data = bodyfat)
+autoplot(lm, which = 4)
+```
+
+### Multicollinearity and Model Selection
+
+Homework 4 should have revealed a **multicollinearity problem** in this dataset. The goal of this assignment is to continue the analysis by identifying variables that can be removed to resolve these multicollinearity issues.
+
+#### 3. Why is multicollinearity a problem in multiple linear regression?
+
+It's usually bad because it messes with the model's parameters. It makes the estimators unstable, inflates the errors of your beta hats, and even has the potential to estimate the reverse relationship from the one that actually exists.
+
+#### 4. Briefly explain the model selection process when using "best subsets" variable selection.
+
+Best subsets variable selection simply fits every possible combination of variables and then evaluates them against each other using AIC or BIC scores.
+
+#### 5. Briefly explain the model selection process when using stepwise variable selection methods.
+
+-   What is the difference between **forward** and **backward** selection?
+
+Stepwise variable selection methods come in two kinds, forward and backward. In the forward version, the process starts with an intercept and tries adding variables one at a time, adding the variable that would result in the lower AIC or BIC each time. In the backward version, it starts with a model that includes all of the variables and removes them based on which one improves the AIC or BIC the most each time. Each of these processes repeats until no more improvement can be made.
+
+#### 6. Briefly explain how penalized regression methods work (i.e., shrinkage methods).
+
+They essentially add another term to the ordinary least squares expression that the model is trying to minimize for that has the effect of shrinking the coefficients or driving them to zero to introduce a little bias but to minimize the variance of the model.
+
+#### 7. Briefly explain the differences between Ridge regression and LASSO regression.
+
+Ridge regression shrinks the beta hats, while LASSO is designed to drive some to zero, effectively acting as a variable selection method. Ridge is best when you suspect that there are colinear variables but don't want to eliminate any of them while LASSO is good when you want a simpler model that is easier to interpret and don't care about getting rid of colinear variables.
+
+### **Variable Selection Methods**
+
+#### 8. Best Subsets Selection
+
+Use the `bestglm` function to apply **best subsets** variable selection to this dataset.\
+- Try it using **AIC** and **BIC**.\
+- Output a summary of the "best" model for each metric.\
+- (*Note: For the `bestglm` function in R, the response variable must be the last column in the dataset. Switch the order of the columns so that `brozek` is last.*)
+
+```{r, fig.align='center'}
+# Put the brozek column last
+bodyfat <- bodyfat[,c("age", "weight", "height", "neck", "chest", "abdom", "brozek")]
+
+best_subsets_aic <- bestglm(bodyfat, IC = "AIC", method = "exhaustive")
+#best_subsets_bic$BestModels
+summary(best_subsets_aic$BestModel)
+
+best_subsets_bic <- bestglm(bodyfat, IC = "BIC", method = "exhaustive")
+#best_subsets_bic$BestModels
+summary(best_subsets_bic$BestModel)
+```
+
+#### 9. LASSO
+
+```{r}
+# Load glmnet package
+library(glmnet)
+
+# Simulate some data
+set.seed(41)
+X <- matrix(rnorm(100*20), 100, 20)  # 100 samples, 20 predictors
+y <- rnorm(100)  # Response variable
+
+# Fit Lasso model using cross-validation
+cv_fit <- cv.glmnet(X, y, alpha = 1)  # alpha=1 for Lasso (L1 regularization)
+
+# Plot cross-validation results
+plot(cv_fit)
+
+# Best lambda value (minimizing cross-validation error)
+best_lambda <- cv_fit$lambda.min
+print(best_lambda)
+
+# Coefficients at best lambda
+coef(cv_fit, s = "lambda.min")
+
+```
+
+Apply **LASSO** to this dataset using the **MSE metric** (do not output any plots).\
+- What is the $\lambda$ value corresponding to the **1 standard error rule**?
+
+```{r, fig.align='center'}
+env_x <- as.matrix(bodyfat[, 1:6]) # predictors
+env_y <- bodyfat[, 7] # response
+
+# use cross validation to pick the "best" (based on MSE) lambda
+env_lasso_cv <- cv.glmnet(x = env_x, # automatically includes a column of ones for the intercept FYI
+                          y = env_y, 
+                          type.measure = "mse", 
+                          alpha = 1)  # 1 is code for "lasso"
+
+env_lasso_cv$lambda.1se
+
+coef(env_lasso_cv, s = "lambda.1se")
+
+```
+
+The lambda value would be 0.5120611.
+
+#### 10. Variable Selection Table
+
+Fill in the table below with "X"s indicating which variables were selected by each method.
+
+| Variable | Best Subsets (AIC) | Best Subsets (BIC) | LASSO |
+|----------|--------------------|--------------------|-------|
+| age      |                    |                    | X     |
+| weight   |                    | X                  |       |
+| height   | X                  |                    | X     |
+| neck     | X                  |                    |       |
+| chest    | X                  |                    |       |
+| abdom    | X                  | X                  | X     |
+
+#### 11. Model Comparison via Cross-Validation
+
+Compare the performance of the following four models using the cross-validation procedure we discussed in class (with 100 iterations):
+
+1.  The full model (all predictor variables)
+
+2.  A model with only the variables selected by best subset selection using **AIC** as the selection criterion.
+
+3.  A model with only the variables selected by best subset selection using **BIC** as the selection criterion.
+
+4.  A model fit using lm() with only the variables selected by LASSO from Question 9. (Note that doing this will result in no shrinkage on the coefficient estimates, meaning that the bias-variance tradeoff no longer applies to estimates from this model. The flipside is that it is easier to use the model for inference. In general this is a reasonable, albeit somewhat ad hoc approach to variable selection and model fitting, especially in settings where best subsets is computationally unfeasible.)
+
+Report the average out of sample MSE across all 100 iterations for each model.
+
+```{r, fig.align='center'}
+
+PMSE_full <- c()
+PMSE_AIC <- c()
+PMSE_BIC <- c()
+PMSE_LASSO <- c()
+
+for (x in 1:100) {
+  test_indx <- sample(1:nrow(bodyfat), floor(.2*nrow(bodyfat)))
+  test_data <- bodyfat[test_indx,]
+  train_data <- bodyfat[-test_indx,]
+  
+  full_model <- lm(data = bodyfat, brozek ~ .)
+  subsets_AIC_model <- lm(data = bodyfat, brozek ~ height + neck + chest + abdom)
+  subsets_BIC_model <- lm(data = bodyfat, brozek ~ weight + abdom)
+  LASSO_model <- lm(data = bodyfat, brozek ~ age + height + abdom)
+  
+  predictions_full <- predict(full_model, newdata = test_data)
+  predictions_AIC <- predict(subsets_AIC_model, newdata = test_data)
+  predictions_BIC <- predict(subsets_BIC_model, newdata = test_data)
+  predictions_LASSO <- predict(LASSO_model, newdata = test_data)
+  
+  PMSE_full <- c(PMSE_full, mean((predictions_full - test_data$brozek)^2))
+  PMSE_AIC <- c(PMSE_AIC, mean((predictions_AIC - test_data$brozek)^2))
+  PMSE_BIC <- c(PMSE_BIC, mean((predictions_BIC - test_data$brozek)^2))
+  PMSE_LASSO <- c(PMSE_LASSO, mean((predictions_LASSO - test_data$brozek)^2))
+}
+
+print(c(mean(PMSE_full), mean(PMSE_AIC), mean(PMSE_BIC), mean(PMSE_LASSO)))
+```
+
+#### 12. Now that you have seen the various results from the different methods, pick a subset of variables that you will include in your final model. Which variables do you choose to include in the model? Why?
+
+I would choose the model that was created using best subsets method and the AIC as a metric. It's average PMSE is comparable to the full model, but it has less variables, which will make it more interpretible.
+
+### Assumption Checking
+
+The next several questions ask you to check the model assumptions on this new model. For each assumption, (1) perform appropriate diagnostics to determine if the assumption is violated, and (2) explain whether or not you think the assumption is violated and why you think that. **Note: you can copy (then modify) a lot of your code from Homework 4 to answer these questions.**
+
+#### 13. Linearity Assumption
+
+```{r, fig.align='center'}
+linear_model <- lm(brozek ~ height + neck + chest + abdom, data = bodyfat)
+
+residuals <- linear_model$residuals
+
+resid_vs_height <- ggplot(data = bodyfat) +
+  geom_point(mapping = aes(x = height, y = residuals)) +
+  theme(aspect.ratio = 1)
+
+resid_vs_neck <- ggplot(data = bodyfat) +
+  geom_point(mapping = aes(x = neck, y = residuals)) +
+  theme(aspect.ratio = 1)
+
+resid_vs_chest <- ggplot(data = bodyfat) +
+  geom_point(mapping = aes(x = chest, y = residuals)) +
+  theme(aspect.ratio = 1)
+
+resid_vs_abdom <- ggplot(data = bodyfat) +
+  geom_point(mapping = aes(x = abdom, y = residuals)) +
+  theme(aspect.ratio = 1)
+
+# put plots in 2 rows & 2 columns using the patchwork package
+(resid_vs_height | resid_vs_neck) /
+  (resid_vs_chest | resid_vs_abdom)
+```
+
+```{r}
+avPlots(linear_model)
+```
+
+```{r, fig.align='center'}
+autoplot(linear_model, which = 1)
+```
+
+#### 14. Normality of Errors
+
+```{r, fig.align='center'}
+hist(residuals)
+autoplot(linear_model, which = 2)
+shapiro.test(residuals)
+```
+
+#### 15. Homoscedasticity
+
+```{r, fig.align='center'}
+autoplot(linear_model, which = 1)
+```
+
+#### 16. Influential Points
+
+```{r, fig.align='center'}
+autoplot(linear_model, which = 4)
+```
+
+#### 17. Multicollinearity
+
+```{r, fig.align='center'}
+vif(linear_model)
+```
+
+### Final Reflection
+
+#### 18. Does your final model adequately satisfy the regression assumptions?
+
+It seems like it does! It meets all of the requirements as stated in homework 4, with the added bonus that it satisfied the multicollinearity assumption as well. I guess you could go check on point 40 which could qualify as an outlier but it's kind of on the fence so I'll let it pass.
+
+#### 19. What did you learn from this analysis?
+
+I learned that you can use some of these variable selection methods to find a model that still predicts well out of sample while also remaining simple and avoiding issues related to colinearity. There are a few different ways to choose variables that are worth doing because they'll lead you to make different choices and so it's important to know about all of them so that you can compare the results and make an educated decision about which model to publish.
+
+#### 20. Summarize your findings for a non-statistician.
+
+We continued our analysis of the body fat percentage data, and we were able to find a simpler model that did comparably well to the one from last time, but doesn't have some of the problems that it had with variables in the model that were essentially the same thing. We found that if you exclude age and weight, you end up with a model that solves those problems and has the bonus of being easier to interpret in the field.

@@ -1,0 +1,772 @@
+---
+title: "Count Outcomes: Poisson and Negative Binomial Regression"
+subtitle: "Modeling Lyme Disease Counts by County"
+author: "Philip White"
+format:
+  revealjs:
+    slide-number: true
+    incremental: true
+    theme: serif
+    css: slides.css
+    scrollable: true
+    margin: 0
+execute:
+  echo: true
+  warning: false
+  message: false
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(MASS)        # glm.nb
+library(broom)
+library(patchwork)
+library(usmap)
+library(sf)
+library(AER) ### dispersiontest
+
+theme_set(theme_minimal(base_size = 14))
+
+library(tidyverse)
+
+state_temp <- tribble(
+  ~stname,          ~mean_temp_F,
+  "Alabama",        63.5,
+  "Alaska",         28.1,
+  "Arizona",        61.1,
+  "Arkansas",       61.1,
+  "California",     59.9,
+  "Colorado",       46.4,
+  "Connecticut",    49.9,
+  "Delaware",       56.1,
+  "Florida",        71.5,
+  "Georgia",        64.3,
+  "Hawaii",         70.2,
+  "Idaho",          45.1,
+  "Illinois",       52.7,
+  "Indiana",        52.5,
+  "Iowa",           48.7,
+  "Kansas",         55.2,
+  "Kentucky",       56.5,
+  "Louisiana",      67.2,
+  "Maine",          41.7,
+  "Maryland",       55.4,
+  "Massachusetts",  48.8,
+  "Michigan",       45.3,
+  "Minnesota",      42.2,
+  "Mississippi",    64.2,
+  "Missouri",       55.5,
+  "Montana",        43.3,
+  "Nebraska",       49.6,
+  "Nevada",         51.1,
+  "New Hampshire",  44.6,
+  "New Jersey",     53.6,
+  "New Mexico",     53.8,
+  "New York",       46.1,
+  "North Carolina", 59.9,
+  "North Dakota",   41.3,
+  "Ohio",           51.7,
+  "Oklahoma",       60.6,
+  "Oregon",         49.3,
+  "Pennsylvania",   49.4,
+  "Rhode Island",   50.9,
+  "South Carolina", 63.3,
+  "South Dakota",   46.1,
+  "Tennessee",      58.5,
+  "Texas",          65.3,
+  "Utah",           49.5,
+  "Vermont",        43.2,
+  "Virginia",       56.3,
+  "Washington",     49.1,
+  "West Virginia",  52.7,
+  "Wisconsin",      44.3,
+  "Wyoming",        42.8
+)
+```
+
+------------------------------------------------------------------------
+
+## Learning goals
+
+By the end of today:
+
+-   Understand when count models are appropriate.
+-   Derive and interpret the Poisson regression model.
+-   Use offsets to model rates.
+-   Diagnose overdispersion.
+-   Fit and interpret Negative Binomial regression.
+-   Compare Poisson vs NB models using LRT and AIC.
+
+------------------------------------------------------------------------
+
+## Remember the Lyme Dataset
+
+```{r}
+lyme <- read_csv("lyme_data.csv") %>% 
+  mutate(
+    case_rate_2022 = Cases2022 / TOT_POP,
+    FIPS = paste0(
+      sprintf("%02d", as.numeric(stcode)),
+      sprintf("%03d", as.numeric(ctycode))
+    )
+  ) 
+
+# County map with geometry
+county_geo <- us_map("counties") %>%
+  st_as_sf()
+
+# Merge with Lyme data
+lyme_geo <- county_geo %>%
+  left_join(lyme, by = c("fips" = "FIPS")) %>%
+  left_join(state_temp, by = "stname") %>% 
+  mutate(
+    centroid = st_centroid(geom),
+    lat = st_coordinates(centroid)[,2],
+    area_km2 = as.numeric(st_area(geom)) / 1e6,
+    log_pop_density = log(TOT_POP / area_km2),
+    case_rate_2022 = Cases2022 / TOT_POP,
+    Northeast = stname %in% c("Massachusetts","Connecticut","New York",
+                              "New Jersey","Pennsylvania","Rhode Island",
+                              "Vermont","New Hampshire","Maine"
+    )
+  )  %>% 
+  filter(
+    !is.na(Cases2022),
+    !is.na(TOT_POP),
+    !is.na(mean_temp_F),
+    !is.na(lat)
+  )
+
+glimpse(lyme_geo)
+
+
+```
+
+------------------------------------------------------------------------
+
+## Mapping 2022 annual incidence rate
+
+```{r}
+
+usa_data <- us_map("counties") %>% 
+  left_join(lyme, by = c("fips" = "FIPS"))
+
+usa_states <- us_map("states")
+
+ggplot(usa_data) + 
+  theme_bw() +
+  geom_sf(aes(fill = case_rate_2022)) +
+  geom_sf(data = usa_states, fill = NA, col = "black", linewidth = 0.35) +
+  scale_fill_gradientn(
+    colors = c("white", "orange", "magenta", "darkred"),
+    labels = scales::label_percent()
+  ) +
+  labs(
+    fill = "Annual\nIncidence\nRate",
+    title = "Lyme Disease per-year Incidence Rate (2022)"
+  )
+  
+```
+
+------------------------------------------------------------------------
+
+## Final Map
+
+```{r,echo = FALSE}
+ggplot(usa_data) + 
+  theme_bw() +
+  geom_sf(aes(fill = case_rate_2022)) +
+  geom_sf(data = usa_states, fill = NA, col = "black", linewidth = 0.35) +
+  scale_fill_gradientn(
+    colors = c("white", "orange", "magenta", "darkred"),
+    labels = scales::label_percent()
+  ) +
+  labs(
+    fill = "Annual\nIncidence\nRate",
+    title = "Lyme Disease per-year Incidence Rate (2022)"
+  )
+  
+```
+
+------------------------------------------------------------------------
+
+## Final Map - Counts
+
+```{r,echo = FALSE}
+ggplot(usa_data) + 
+  theme_bw() +
+  geom_sf(aes(fill = Cases2022)) +
+  geom_sf(data = usa_states, fill = NA, col = "black", linewidth = 0.35) +
+  scale_fill_gradientn(
+    colors = c("white", "orange", "magenta", "darkred"),
+    # labels = scales::label_percent()
+  ) +
+  labs(
+    fill = "Annual\nCounts",
+    title = "Lyme Disease per-year Incidence Rate (2022)"
+  )
+  
+```
+
+------------------------------------------------------------------------
+
+## Relationships between rate and temperature
+
+```{r,echo = FALSE}
+ggplot(lyme_geo) + 
+  theme_bw(base_size = 16) +
+  geom_point(aes(x = mean_temp_F,y = case_rate_2022,col = Northeast))+
+    scale_y_continuous(
+    labels = scales::label_percent()
+  ) +
+  labs(
+    x = "Mean Temperature (F)",
+    y = "Lyme Incidence Rate"
+  )
+
+```
+
+## Relationships between Population Density and Rate
+
+```{r,echo = FALSE}
+
+ggplot(lyme_geo) + 
+  theme_bw(base_size = 16) +
+  geom_point(aes(x = log_pop_density,y = case_rate_2022,col = Northeast))+
+    scale_y_continuous(
+    labels = scales::label_percent()
+  ) +
+  labs(
+    x = "Log Population Density",
+    y = "Lyme Incidence Rate"
+  )
+
+```
+
+## Relationships between State Status and Rate
+
+```{r,echo = FALSE}
+
+ggplot(lyme_geo %>% filter(!is.na(stname))) + 
+  theme_bw(base_size = 16) +
+  geom_boxplot(aes(x = ststatus,y = case_rate_2022))+
+    scale_y_continuous(
+    labels = scales::label_percent()
+  ) +
+  theme(
+  ) + 
+  labs(
+    x = "State Status",
+    y = "Incidence Rate"
+  )
+  
+```
+
+## Relationships between State and Rate
+
+```{r,echo = FALSE}
+
+ggplot(lyme_geo %>% filter(!is.na(stname))) + 
+  theme_bw(base_size = 16) +
+  geom_boxplot(aes(x = stname,y = case_rate_2022))+
+    scale_y_continuous(
+    labels = scales::label_percent()
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 270,hjust= 0,vjust= .5)
+  ) + 
+  labs(
+    x = "",
+    y = "Incidence Rate"
+  )
+  
+```
+
+------------------------------------------------------------------------
+
+## Distribution of Counts
+
+```{r}
+ggplot(lyme, aes(x = Cases2022)) +
+  geom_histogram(bins = 40, fill = "steelblue") +
+  labs(title = "Distribution of Lyme Cases (2022)")
+```
+
+Discussion:
+
+-   Is this symmetric?
+-   Is variance constant?
+-   What does this suggest?
+
+------------------------------------------------------------------------
+
+## Why Not Linear Regression?
+
+Lyme disease cases per county are:
+
+-   Non-negative integers.
+-   Highly skewed.
+-   Variance often increases with the mean.
+-   Many counties have zero cases.
+
+OLS assumptions are violated.
+
+We will model:
+
+-   Outcome: `Cases2022`
+-   Exposure: `TOT_POP`, Geography (`stname`,`Northeast`),
+    `log_pop_density`, `mean_temp_F`, `ststatus`
+
+------------------------------------------------------------------------
+
+## The Poisson Distribution
+
+If $Y \sim \text{Poisson}(\mu)$:
+
+-   $E(Y) = \mu$
+
+-   $\text{Var}(Y) = \mu$
+
+-   Key property:
+
+> Mean equals variance.
+
+This is often unrealistic in real data.
+
+------------------------------------------------------------------------
+
+## Poisson Regression Model
+
+Like logistic regression, this is another example of a generalized
+linear model
+
+Assume:
+
+$$
+\text{Cases}_i \overset{ind}{\sim} \text{Poisson}(\mu_i)
+$$
+
+Log link:
+
+$$
+\log(\mu_i) = \beta_0 + X_i^\top \beta
+$$
+
+Interpretation:
+
+-   $\beta_j$ = change in the log of the expected count, holding all
+    other variables constant.
+-   $e^{\beta_j}$ = multiplicative change in expected count, holding all
+    other variables constant.
+
+------------------------------------------------------------------------
+
+## Correct Distributional Form
+
+-   The outcome is a **count** (non-negative integers).
+
+-   Conditional on covariates:
+
+    $$
+    E(Y_i \mid X_i) = \mu_i
+    $$
+
+    $$
+    \mathrm{Var}(Y_i \mid X_i) = \mu_i
+    $$
+
+-   Mean equals variance (**equidispersion**).
+
+------------------------------------------------------------------------
+
+## Log-Linear Mean Structure
+
+-   The log of the expected count is linear in predictors: $$
+    \log(\mu_i) = X_i^\top \beta
+    $$
+
+-   Implies multiplicative effects on the count scale: $$
+    e^{\beta_j} = \text{Incidence Rate Ratio (IRR)}
+    $$
+
+------------------------------------------------------------------------
+
+## Independence
+
+-   Observations are independent conditional on covariates.
+-   No unmodeled clustering or spatial dependence.
+
+------------------------------------------------------------------------
+
+## Consequences of Violations
+
+-   Overdispersion → underestimated standard errors.
+-   Wrong functional form → biased IRRs.
+-   Omitted variables.
+
+If assumptions fail, we could consider alternative models:
+
+-   Negative Binomial
+-   Zero-inflated models
+-   Quasi-Poisson models
+-   Spatial/time-series models
+
+------------------------------------------------------------------------
+
+## Modeling Rates with Offsets
+
+To model rates, we would typically use an **offset** for population:
+
+We model:
+
+$$
+\log(\mu_i) = \beta_0 \log(\text{Population}_i) + X_i^\top \beta
+$$
+
+Equivalent to modeling:
+
+$$
+\log\left(\frac{\mu_i}{\text{Population}_i}\right) = X_i^\top \beta
+$$
+
+The term $\log(\text{Population}_i)$ is an **offset**. It is a covariate
+w/o a regression coefficient.
+
+------------------------------------------------------------------------
+
+## Fit Poisson Model (Counts)
+
+```{r}
+fit_pois <- glm(Cases2022 ~ TOT_POP,
+                data = lyme,
+                family = poisson)
+
+summary(fit_pois)
+```
+
+This is wrong because population should be an offset.
+
+------------------------------------------------------------------------
+
+## Fit Poisson Model with Offset
+
+```{r}
+fit_pois_offset <- glm(Cases2022 ~ ststatus + mean_temp_F + log_pop_density,
+                       offset = log(TOT_POP),
+                       data = lyme_geo,
+                       family = poisson)
+
+summary(fit_pois_offset)
+```
+
+Interpretation:
+
+-   Intercept represents baseline log incidence rate.
+
+------------------------------------------------------------------------
+
+## Add Predictors
+
+Suppose we use:
+
+-   State status (`ststatus`)
+-   State-level average temperature (`mean_temp_F`)
+-   Log population density (`log_pop_density`)
+
+```{r}
+fit_pois2 <- glm(Cases2022 ~ ststatus + mean_temp_F + log_pop_density,
+                 offset = log(TOT_POP),
+                 data = lyme_geo,
+                 family = poisson)
+
+summary(fit_pois2)
+```
+
+Interpretation: - $\beta_{temp}$ = change in the log-mean for a one unit
+change in avg. temperature, holding other variables constant. -
+$e^{\beta}$ = incidence rate ratio (IRR) for a one unit change in avg.
+temperature, holding other variables constant.
+
+------------------------------------------------------------------------
+
+## Interpretation of IRR for `ststatus`
+
+```{r}
+summary(fit_pois2)
+```
+
+If $\hat{\beta} = -3.9814524$:
+
+$$
+e^{-3.9814524} \approx 0.019
+$$
+
+Interpretation:
+
+-   Counties in "Low Incidence" states have 98% fewer cases, on average,
+    than cases in "High Incidence" states, holding other variables
+    constant.
+
+------------------------------------------------------------------------
+
+## What Does the Poisson Model Assume?
+
+If
+
+$$
+Y_i \sim \text{Poisson}(\mu_i),
+$$
+
+then the Poisson distribution implies:
+
+$$
+E(Y_i) = \mu_i
+$$
+
+$$
+\mathrm{Var}(Y_i) = \mu_i
+$$
+
+**Key assumption:**
+
+> The variance equals the mean.
+
+This is called **equidispersion**.
+
+------------------------------------------------------------------------
+
+## Why Might This Be Unrealistic?
+
+Real epidemiologic count data often show:
+
+-   Geographical patterns
+-   Unmeasured heterogeneity
+-   Outbreak behavior
+-   Zero inflation (more zeros than a Poisson would expect)
+
+These can create:
+
+$$
+\mathrm{Var}(Y_i) > E(Y_i)
+$$
+
+This is called **overdispersion**.
+
+If we ignore it:
+
+-   Standard errors are too small
+-   p-values are too optimistic
+-   Confidence intervals are too narrow
+
+------------------------------------------------------------------------
+
+## Checking for Overdispersion
+
+A simple diagnostic for Poisson GLMs:
+
+$$
+\frac{\text{Residual Deviance}}{\text{Residual Degrees of Freedom}}
+$$
+
+In R:
+
+```{r}
+deviance(fit_pois2) / df.residual(fit_pois2)
+```
+
+Interpretation:
+
+-   ≈ 1 → Poisson variance assumption reasonable
+
+-   
+
+    > > 1 → Overdispersion present
+
+-   \<\< 1 → Underdispersion (rare in practice)
+
+If overdispersion is present:
+
+> The Poisson assumption is violated → consider Negative Binomial.
+
+------------------------------------------------------------------------
+
+## Another Quick Check
+
+```{r}
+mean(lyme$Cases2022)
+var(lyme$Cases2022)
+```
+
+If variance \>\> mean → overdispersion likely.
+
+------------------------------------------------------------------------
+
+## More formal test
+
+```{r}
+### AER package
+dispersiontest(fit_pois2)
+```
+
+------------------------------------------------------------------------
+
+$$
+Y_i \sim \text{Negative Binomial}(\mu_i, \theta),
+$$
+
+with
+
+$$
+E(Y_i \mid X_i) = \mu_i
+$$
+
+$$
+\mathrm{Var}(Y_i \mid X_i) = \mu_i + \frac{\mu_i^2}{\theta}.
+$$
+
+------------------------------------------------------------------------
+
+### Mean Model (same as Poisson)
+
+We use the same log link:
+
+$$
+\log(\mu_i) = X_i^\top \beta
+$$
+
+or, when modeling rates,
+
+$$
+\log(\mu_i) = \log(\text{Exposure}_i) + X_i^\top \beta.
+$$
+
+So interpretation of coefficients is unchanged:
+
+$$
+e^{\beta_j} = \text{Incidence Rate Ratio (IRR)}.
+$$
+
+------------------------------------------------------------------------
+
+## Role of the Dispersion Parameter
+
+-   $\theta$ controls overdispersion.
+
+-   As $\theta \to \infty$: $$
+    \mathrm{Var}(Y_i) \to \mu_i
+    $$ and the model approaches Poisson.
+
+-   Small $\theta$ → large overdispersion.
+
+------------------------------------------------------------------------
+
+## Intuition
+
+The Negative Binomial can be viewed as:
+
+> A Poisson model with unobserved heterogeneity in the rate.
+
+It allows
+
+$$
+\mathrm{Var}(Y_i) > E(Y_i),
+$$
+
+which is common in epidemiologic count data.
+
+------------------------------------------------------------------------
+
+## Fit Negative Binomial
+
+```{r}
+fit_nb <- glm.nb(Cases2022 ~ ststatus + mean_temp_F + log_pop_density + offset(log(TOT_POP)),
+                 data = lyme_geo)
+
+summary(fit_nb)
+```
+
+Interpretation of coefficients same as Poisson:
+
+-   $e^{\beta}$ = incidence rate ratio.
+
+------------------------------------------------------------------------
+
+## Compare Models
+
+```{r}
+AIC(fit_pois2, fit_nb)
+```
+
+Lower AIC preferred.
+
+------------------------------------------------------------------------
+
+## 16. Likelihood Ratio Test
+
+```{r}
+anova(fit_pois2, fit_nb, test = "LRT")
+```
+
+If NB significantly better → prefer NB.
+
+------------------------------------------------------------------------
+
+## 17. Predicted Rates
+
+```{r}
+lyme_geo$pred_nb <- predict(fit_nb, type = "response")
+
+ggplot(lyme_geo, aes(x = TOT_POP, y = pred_nb)) +
+  geom_point(alpha = 0.4) +
+  labs(title = "Predicted Counts (Negative Binomial)")
+```
+
+------------------------------------------------------------------------
+
+## Conceptual Summary
+
+Poisson:
+
+-   Mean = Variance.
+-   Good when counts small, dispersion minimal.
+
+Negative Binomial:
+
+-   Handles overdispersion.
+-   More flexible.
+-   Often preferred in epidemiology.
+
+------------------------------------------------------------------------
+
+## In-Class Modeling Exercise
+
+In groups:
+
+1.  Fit Poisson with offset.
+2.  Check overdispersion.
+3.  Fit NB model.
+4.  Compare AIC.
+5.  Interpret one IRR in plain language.
+6.  Discuss: which model is better and why?
+
+------------------------------------------------------------------------
+
+## Discussion Prompts
+
+-   Why does modeling counts require a log link?
+-   When is offset necessary?
+-   When might zero-inflated models be appropriate?
+-   How does interpretation compare to logistic regression?
+
+------------------------------------------------------------------------
+
+## Takeaways
+
+-   Count models are extensions of GLMs.
+-   Offsets allow modeling of rates.
+-   Overdispersion matters.
+-   Negative Binomial is often more realistic.
+-   Interpretation always occurs on multiplicative scale.

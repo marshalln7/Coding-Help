@@ -1,0 +1,949 @@
+---
+title: "Survival Analysis — Probability, Life Tables, and KM-Curves"
+author: "Philip White"
+format:
+  revealjs:
+    slide-number: true
+    incremental: true
+    theme: serif
+    css: slides.css
+    scrollable: true
+    margin: 0
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+theme_set(theme_minimal(base_size = 14))
+```
+
+------------------------------------------------------------------------
+
+## Lecture 1 — Roadmap
+
+```         
+1.  Basic probability view: CDF, survival function, hazard function.
+2.  Life tables (discrete / interval estimates) — conditional probs.
+3.  Right censoring: what breaks and what doesn’t.
+4.  Kaplan–Meier estimator: derivation, hand calculations, and R code.
+5.  Quick diagnostics and interpretation.
+```
+
+------------------------------------------------------------------------
+
+## Motivation: Why Survival Analysis?
+
+Many biomedical questions involve **time until an event**.
+
+Examples:
+
+-   Time from diagnosis to death
+
+-   Time until relapse
+
+-   Time until infection
+
+-   Time until device failure
+
+-   Key feature:
+
+> -   The outcome is **time until the event**, not simply whether the event occurs.
+
+------------------------------------------------------------------------
+
+## What makes time-to-event data different?
+
+Two important characteristics:
+
+1.  **Events occur over time**
+2.  **Some subjects may not experience the event during follow-up**
+
+Example situations:
+
+-   Patient still alive at last follow-up
+-   Study ends before event occurs
+-   Patient lost to follow-up
+
+These features require specialized statistical tools.
+
+------------------------------------------------------------------------
+
+## Probability View of Survival Data
+
+Let $T$ be the **time to event**.
+
+We can treat $T$ as a random variable.
+
+We'll introduce four key functions describe the distribution of $T$.
+
+------------------------------------------------------------------------
+
+## Cumulative Distribution Function
+
+The cumulative distribution function (CDF) is
+
+$$
+F(t) = P(T \le t)
+$$
+
+Interpretation:
+
+> The probability that the event occurs **on or before time** $t$.
+
+------------------------------------------------------------------------
+
+## Survival Function
+
+The survival function is
+
+$$
+S(t) = P(T > t)
+$$
+
+This is the probability that the event **has not yet occurred by time** $t$.
+
+Relationship with the CDF:
+
+$$
+S(t) = 1 - F(t)
+$$
+
+This function is the **central quantity in survival analysis**.
+
+------------------------------------------------------------------------
+
+## Probability Density
+
+If $T$ has a density:
+
+$$
+f(t) = \frac{d}{dt}F(t)
+$$
+
+The density describes how event times are distributed across time.
+
+Relationship with survival:
+
+$$
+f(t) = -\frac{d}{dt}S(t)
+$$
+
+------------------------------------------------------------------------
+
+## Hazard Function
+
+The hazard function measures the **instantaneous risk of the event**.
+
+Definition:
+
+$$
+h(t) =
+\lim_{\Delta t \to 0}
+\frac{P(t < T \le t + \Delta t \mid T \ge t)}{\Delta t}
+$$
+
+Equivalent expression:
+
+$$
+h(t) = \frac{f(t)}{S(t)}
+$$
+
+Interpretation:
+
+> The instantaneous rate at which events occur at time $t$, given survival up to $t$.
+
+------------------------------------------------------------------------
+
+## Intuition for the Hazard
+
+Think of the hazard as:
+
+-   the **instantaneous event rate**
+-   conditional on having survived to time $t$
+
+Important:
+
+-   It is **not a probability**
+-   It can exceed 1
+-   Units are events per unit time
+
+------------------------------------------------------------------------
+
+## Relationships Among Functions
+
+These functions are mathematically connected:
+
+$$
+S(t) = 1 - F(t)
+$$
+
+$$
+f(t) = \frac{d}{dt}F(t)
+$$
+
+$$
+h(t) = \frac{f(t)}{S(t)}
+$$
+
+Also,
+
+$$
+S(t) =
+\exp\left(-\int_0^t h(u) \, du\right)
+$$
+
+This link between hazard and survival will become important later.
+
+------------------------------------------------------------------------
+
+## Example: Exponential Survival - Find the CDF
+
+Suppose
+
+$$
+f(t) = \lambda e^{- \lambda t}
+$$
+
+Find the CDF $F(t) = \int_{-\infty}^t f(t) dt$.
+
+------------------------------------------------------------------------
+
+## Example: Exponential Survival - find the hazard function
+
+Then the survival function is
+
+$$
+S(t) = e^{-\lambda t}
+$$
+
+-   Find the hazard function $h(t) = \frac{f(t)}{S(t)}$. Explain what this means to your group.
+
+Properties:
+
+-   constant hazard
+-   decreasing survival
+-   mean survival time $1/\lambda$\$
+
+------------------------------------------------------------------------
+
+## Visualizing Exponential Survival
+
+```{r}
+lambda <- 0.1
+t <- seq(0,50,length.out=400)
+
+S <- exp(-lambda * t)
+
+ggplot(tibble(t,S), aes(x=t,y=S)) +
+  geom_line() +
+  labs(
+    x="Time",
+    y="Survival probability",
+    title="Exponential survival curve"
+  )
+```
+
+------------------------------------------------------------------------
+
+## Summary
+
+Key ideas:
+
+-   Survival analysis studies **time until an event**
+-   The key functions are:
+    -   $F(t)$: cumulative distribution
+    -   $S(t)$: survival function
+    -   $f(t)$: density
+    -   $h(t)$: hazard
+-   Survival curves are often **step functions** when estimated empirically
+
+------------------------------------------------------------------------
+
+## Empirical Survival Curves
+
+Before introducing formal models, we can look at **empirical survival curves**.
+
+Suppose we observe the following event times:
+
+| Person | Event Time |
+|--------|------------|
+| A      | 2          |
+| B      | 4          |
+| C      | 6          |
+| D      | 8          |
+| E      | 10         |
+
+At time $t$, survival probability can be estimated as:
+
+$$
+\hat S(t) =
+\frac{\text{number of individuals with event time } > t}{n}
+$$
+
+------------------------------------------------------------------------
+
+## Example: Empirical Survival Curve
+
+::: panel-tabset
+### Data
+
+| Person | Event Time |
+|--------|------------|
+| A      | 2          |
+| B      | 4          |
+| C      | 6          |
+| D      | 8          |
+| E      | 10         |
+
+Can you draw the empirical survival function?
+
+$$
+\hat S(t) =
+\frac{\text{number of individuals with event time } > t}{n}
+$$
+
+### Survival Function
+
+For the previous data:
+
+| Time | Alive | Survival |
+|------|-------|----------|
+| 0    | 5     | 1.0      |
+| 2    | 4     | 0.8      |
+| 4    | 3     | 0.6      |
+| 6    | 2     | 0.4      |
+| 8    | 1     | 0.2      |
+| 10   | 0     | 0        |
+
+Survival curves are **step functions**.
+
+### Plot
+
+```{r}
+times <- c(2,4,6,8,10)
+
+df <- tibble(time = times)
+
+ggplot(df, aes(x = time)) +
+  stat_ecdf(geom = "step", aes(y = 1 - after_stat(y))) +
+  labs(
+    x = "Time",
+    y = "Empirical survival estimate",
+    title = "Empirical survival curve"
+  ) + 
+  scale_x_continuous(limits = c(0,12),breaks = seq(0,12,by = 2))
+```
+
+This shows the **empirical survival function** based purely on observed event times.
+:::
+
+------------------------------------------------------------------------
+
+## Variance of the Empirical Survival Estimate
+
+Suppose we estimate survival empirically:
+
+$$
+\hat S(t) = \frac{\text{# individuals with } T > t}{n}
+$$
+
+Let
+
+-   $n$ = total number of individuals
+-   $k$ = number of events observed by time $t$
+
+Then
+
+$$
+\hat S(t) = \frac{n-k}{n}
+$$
+
+Because this is a **sample proportion**, the variance is
+
+$$
+\mathrm{Var}(\hat S(t)) =
+\frac{\hat S(t)\left(1-\hat S(t)\right)}{n}
+$$
+
+Standard error:
+
+$$
+SE(\hat S(t)) =
+\sqrt{\frac{\hat S(t)(1-\hat S(t))}{n}}
+$$
+
+Approximate 95% confidence interval:
+
+$$
+\hat S(t) \pm 1.96 \times SE(\hat S(t))
+$$
+
+------------------------------------------------------------------------
+
+## Life Tables
+
+::: fragment
+Suppose we follow individuals over time and record:
+:::
+
+::: fragment
+-   Number **at risk** at the start of each interval
+-   Number of **events (deaths)** during the interval
+:::
+
+::: fragment
+Life tables estimate survival **interval-by-interval**.
+:::
+
+::: fragment
+Example structure:
+:::
+
+::: fragment
+| Year of Treatment | Patients Treated | 1st Year | 2nd Year | 3rd Year | 4th Year | 5th Year |
+|---:|---:|---:|---:|---:|---:|---:|
+| 2000 | 84 | 44 | 21 | 13 | 10 | 8 |
+| 2001 | 62 | 31 | 14 | 10 | 6 |  |
+| 2002 | 93 | 50 | 20 | 13 |  |  |
+| 2003 | 60 | 29 | 16 |  |  |  |
+| 2004 | 76 | 43 |  |  |  |  |
+| **Column Total** | **375** | **197** | **71** | **36** | **16** | **8** |
+:::
+
+::: fragment
+For each interval we compute the **conditional survival probability**.
+:::
+
+## Conditional Probability View of Survival
+
+::: fragment
+Let
+
+-   $n_j$ = number at risk at start of interval $j$
+-   $d_j$ = number of events during interval $j$
+:::
+
+::: fragment
+The probability of surviving that interval is
+
+$$
+p_j = 1 - \frac{d_j}{n_j}
+$$
+:::
+
+::: fragment
+This is the **conditional probability of surviving the interval given survival up to its start**.
+:::
+
+------------------------------------------------------------------------
+
+## Building the Survival Curve
+
+::: fragment
+We combine conditional probabilities.
+
+If
+
+$$
+p_1, p_2, p_3, \dots
+$$
+
+are the interval survival probabilities, then
+
+$$
+S(t_j) = p_1 p_2 \cdots p_j
+$$
+:::
+
+::: fragment
+So survival is the **product of conditional survival probabilities**.
+
+This idea is the foundation for **life tables and Kaplan–Meier curves**.
+:::
+
+------------------------------------------------------------------------
+
+## Example: Life Table Calculation
+
+::: fragment
+Suppose we observe:
+
+| Year of Treatment | Patients Treated | 1st Year | 2nd Year | 3rd Year | 4th Year | 5th Year |
+|---:|---:|---:|---:|---:|---:|---:|
+| 2000 | 84 | 44 | 21 | 13 | 10 | 8 |
+| 2001 | 62 | 31 | 14 | 10 | 6 |  |
+| 2002 | 93 | 50 | 20 | 13 |  |  |
+| 2003 | 60 | 29 | 16 |  |  |  |
+| 2004 | 76 | 43 |  |  |  |  |
+| **Column Total** | **375** | **197** | **71** | **36** | **16** | **8** |
+:::
+
+::: fragment
+Compute conditional survival:
+
+| Interval | At Risk  | Alive at End | $p_j$                   |
+|----------|----------|--------------|-------------------------|
+| Year 1   | 375      | 197          | $197/375 = 0.525$       |
+| Year 2   | 197 - 43 | 71           | $71/(197 - 43) = 0.461$ |
+| Year 3   | 71 - 16  | 36           | $36/(71 - 16) = 0.655$  |
+| Year 4   | 36 - 13  | 16           | $16/(36 - 13) = 0.696$  |
+| Year 5   | 16 - 6   | 8            | $8/(16 - 6) = 0.800$    |
+:::
+
+------------------------------------------------------------------------
+
+## Life Table Survival Curve
+
+Survival estimates:
+
+| Time   | Survival                     |
+|--------|------------------------------|
+| 0      | 1.00                         |
+| Year 1 | $0.525$                      |
+| Year 2 | $0.525 \times 0.461 = 0.242$ |
+| Year 3 | $0.242 \times 0.655 = 0.158$ |
+| Year 4 | $0.158 \times 0.696 = 0.110$ |
+| Year 5 | $0.110 \times 0.800 = 0.088$ |
+
+Interpretation:
+
+::: fragment
+> Approximately **16% survive past year 3**.
+:::
+
+::: fragment
+> Approximately **9% survive past year 5**.
+:::
+
+::: fragment
+Life tables estimate survival using **interval-based conditional probabilities**.
+:::
+
+------------------------------------------------------------------------
+
+## The Problem with Real Data
+
+Real studies often have **incomplete follow-up**.
+
+Example:
+
+| Person | Time | Event                  |
+|--------|------|------------------------|
+| A      | 2    | death                  |
+| B      | 4    | death                  |
+| C      | 6    | withdrew study consent |
+| D      | 7    | death                  |
+| E      | 9    | moved to Australia     |
+
+-   We know the person survived **at least until that time**
+-   But we do not know what happened afterward.'=
+-   This data is **censored**?
+
+------------------------------------------------------------------------
+
+## Right Censoring
+
+::: fragment
+Right censoring occurs when
+
+$$
+T > C
+$$
+
+where $C$ is the last time we observe the individual.
+:::
+
+::: fragment
+Examples:
+
+-   Study ends
+-   Patient lost to follow-up
+-   Participant withdraws
+:::
+
+::: fragment
+Censored observations still contribute information **before the censoring time**.
+:::
+
+------------------------------------------------------------------------
+
+## Assumptions About Censoring
+
+Kaplan–Meier estimation works under several key assumptions.
+
+::: fragment
+### 1. Independent Censoring
+
+Censoring must be **independent of the event time**.
+
+Formally,
+
+$$
+P(\text{censored at } t \mid T \ge t)
+\text{ does not depend on the future event time.}
+$$
+:::
+
+::: fragment
+Interpretation:
+
+> Individuals who are censored at time $t$ have the same future risk as those who remain under observation.
+:::
+
+------------------------------------------------------------------------
+
+### 2. Non-informative Censoring
+
+::: fragment
+The reason for censoring should **not be related to the outcome**.
+:::
+
+::: fragment
+Examples that are usually acceptable:
+
+-   Study ends before the event occurs
+-   Administrative censoring at a fixed date
+-   Patient moves away for unrelated reasons
+:::
+
+::: fragment
+Examples that violate the assumption:
+
+-   Patients drop out because their condition worsens
+-   Patients withdraw due to severe side effects
+:::
+
+------------------------------------------------------------------------
+
+### 3. Exact Event Times Are Known
+
+::: fragment
+Kaplan–Meier assumes:
+
+-   Event times are measured accurately
+-   Ties may occur but the ordering of events is known
+:::
+
+::: fragment
+### Why This Matters
+
+If censoring is informative:
+
+-   Kaplan–Meier curves may be **biased**
+-   Survival may be **overestimated or underestimated**
+:::
+
+::: fragment
+This assumption cannot be tested directly from the data and must be justified by study design.
+:::
+
+------------------------------------------------------------------------
+
+## Example of Assumption Violation
+
+::: fragment
+Suppose very sick patients are more likely to drop out of the study. What direction would the Kaplan–Meier survival estimate be biased?
+:::
+
+::: fragment
+Is survival underestimate or overestimated?
+:::
+
+------------------------------------------------------------------------
+
+## Other Problem with Life Tables
+
+Life tables use **time intervals**, but we often observe **exact event times**.
+
+::: fragment
+Example:
+
+| Person | Event Time |
+|--------|------------|
+| A      | 2          |
+| B      | 4          |
+| C      | 7          |
+| D      | 9          |
+:::
+
+::: fragment
+Grouping these into intervals loses information. So, we want a method that uses **exact event times**.
+:::
+
+------------------------------------------------------------------------
+
+## Kaplan–Meier (KM) Curve
+
+Kaplan–Meier estimates survival using **each event time directly**.
+
+Let
+
+-   $t_1 < t_2 < \dots < t_k$ be event times (ties are okay)
+-   $n_j$ = number at risk just before $t_j$
+-   $d_j$ = number of events at $t_j$
+
+::: fragment
+Then
+
+$$
+\widehat{S(t)} =
+\prod_{t_j \le t}
+\left(1 - \frac{d_j}{n_j}\right)
+$$
+
+-   This is called the **product-limit estimator**.
+:::
+
+------------------------------------------------------------------------
+
+## Key Idea of Kaplan–Meier
+
+::: fragment
+Kaplan–Meier is simply the **same conditional probability idea**:
+
+1.  Compute survival probability at each event time
+2.  Multiply the probabilities together
+:::
+
+::: fragment
+The only difference from life tables:
+
+> We use **exact event times instead of intervals**.
+:::
+
+------------------------------------------------------------------------
+
+## Simple Kaplan–Meier Example
+
+Suppose we observe:
+
+| Time | Event    |
+|------|----------|
+| 2    | death    |
+| 4    | death    |
+| 6    | censored |
+| 7    | death    |
+| 10   | censored |
+
+::: fragment
+Step 1: identify event times.
+
+Step 2: number at risk at times of events.
+:::
+
+::: fragment
+| Time | At Risk |
+|------|---------|
+| 2    | 5       |
+| 4    | 4       |
+| 7    | 2       |
+:::
+
+------------------------------------------------------------------------
+
+## KM Calculation
+
+::: fragment
+Step 3. Compute conditional survival at 2, 4, and 7:
+:::
+
+::: fragment
+| Time | Survival Step    |
+|------|------------------|
+| 2    | $1 - 1/5 = 0.8$  |
+| 4    | $1 - 1/4 = 0.75$ |
+| 7    | $1 - 1/2 = 0.5$  |
+:::
+
+------------------------------------------------------------------------
+
+## Kaplan–Meier Survival
+
+Step 4. Now build KM-curve. Multiply conditional survival.
+
+::: fragment
+| Time | Survival                 |
+|------|--------------------------|
+| 0    | 1.00                     |
+| 2    | 0.8                      |
+| 4    | $0.8 \times 0.75 = 0.60$ |
+| 7    | $0.60 \times 0.50 = 0.3$ |
+
+Interpretation:
+
+> About **30% survive beyond time 7**.
+:::
+
+------------------------------------------------------------------------
+
+## Example in R
+
+::::: panel-tabset
+### Code
+
+::: fragment
+-   `event = 1` → death occurred
+-   `event = 0` → right censored
+:::
+
+::: fragment
+```{r,eval=FALSE}
+library(survival)
+library(survminer)
+
+
+time <- c(2,4,6,7,10)
+event <- c(1,1,0,1,0)
+data_use = Surv(time, event)
+
+fit <- survfit(Surv(time, event) ~ 1)
+
+out = suppressWarnings(ggsurvplot(fit, 
+           data = data_use,
+           risk.table = TRUE,
+           conf.int = FALSE))
+
+out$plot
+
+```
+:::
+
+### Plot
+
+```{r,echo = FALSE}
+library(survival)
+library(survminer)
+
+
+time <- c(2,4,6,7,10)
+event <- c(1,1,0,1,0)
+data_use = Surv(time, event)
+
+fit <- survfit(Surv(time, event) ~ 1)
+
+out = suppressWarnings(ggsurvplot(fit, 
+           data = data_use,
+           risk.table = TRUE,
+           conf.int = FALSE))
+
+out$plot
+
+```
+:::::
+
+------------------------------------------------------------------------
+
+## Practice Group Problem — Compute a KM Curve by Hand
+
+::: fragment
+| Person | Time | Event    |
+|--------|------|----------|
+| A      | 1    | death    |
+| B      | 3    | death    |
+| C      | 4    | censored |
+| D      | 5    | death    |
+| E      | 6    | death    |
+| F      | 8    | censored |
+:::
+
+::: fragment
+1.  Identify the **event times**.
+2.  Determine **how many are at risk** at each event time.
+3.  Compute the **conditional survival probabilities**.
+4.  Build the KM curve step-by-step.
+:::
+
+------------------------------------------------------------------------
+
+## Steps 1 and 2 — Risk Set
+
+::: fragment
+Fill in the number **at risk just before each event time**.
+
+| Time | Event? | At Risk |
+|------|--------|---------|
+| 1    | death  | ?       |
+| 3    | death  | ?       |
+| 5    | death  | ?       |
+| 6    | death  | ?       |
+:::
+
+::: fragment
+Remember:
+
+-   Remove individuals **after they die**
+-   Remove individuals **after censoring**
+-   Censored individuals still count **before the censoring time**
+:::
+
+::: fragment
+Why does the censored observation at time 4 affect the risk set at time 5?
+:::
+
+------------------------------------------------------------------------
+
+## Step 3 — KM Conditional Survival
+
+Now compute
+
+$$
+1 - \frac{d_j}{n_j}
+$$
+
+| Time | At Risk | Deaths | Survival Step |
+|------|---------|--------|---------------|
+| 1    | ?       | 1      | ?             |
+| 3    | ?       | 1      | ?             |
+| 5    | ?       | 1      | ?             |
+| 6    | ?       | 1      | ?             |
+
+------------------------------------------------------------------------
+
+## Step 4: KM Curve
+
+::: fragment
+Then compute cumulative survival:
+
+$$
+S(t_j) = \prod_{k \le j} \left(1 - \frac{d_k}{n_k}\right)
+$$
+:::
+
+::: fragment
+1.  Compute the cumulative survival values
+2.  Draw the Kaplan–Meier curve
+
+-   When does the curve drop?
+-   When does it stay flat?
+-   Where would the **censoring marks** appear?
+:::
+
+------------------------------------------------------------------------
+
+## Shape of a Kaplan–Meier Curve
+
+Kaplan–Meier curves are **step functions**.
+
+-   They drop **only at event times**
+-   They remain flat between events
+-   Censored observations appear as **tick marks**
+
+------------------------------------------------------------------------
+
+## Summary
+
+Key ideas:
+
+-   Survival curves can be built from **conditional probabilities**
+-   Life tables estimate survival using **intervals**
+-   Kaplan–Meier uses **exact event times**
+-   Censored observations contribute information **up to the censoring time**
+
+Next lecture:
+
+-   Comparing survival curves
+-   **Log-rank tests**
+-   Stratified survival analysis

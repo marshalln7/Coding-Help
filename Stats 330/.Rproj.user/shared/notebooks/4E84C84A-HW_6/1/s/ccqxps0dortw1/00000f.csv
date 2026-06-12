@@ -1,0 +1,4 @@
+"0","ggplot(life, aes(x = PPGDP, y = LifeExp, color = Group)) +"
+"0","  geom_point() +"
+"0","  theme_minimal() +"
+"0","  labs(x = ""Life Expectancy"", y = ""Category"", title = ""Scatter Plot of Life Expectancy Per Category"")"

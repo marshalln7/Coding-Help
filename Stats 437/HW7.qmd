@@ -1,0 +1,307 @@
+---
+title: "Homework 7 : Survival Analysis — Life Tables, KM Curves, and Log-Rank Tests"
+author: "Marshall Nielsen"
+format:
+  pdf:
+    toc: false
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(survival)
+library(survminer)
+
+theme_set(theme_minimal(base_size = 14))
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+Show your work clearly for all by-hand calculations. You may use R to check your answers, but your written work should stand on its own.
+
+**Total: 50 points**
+
+------------------------------------------------------------------------
+
+# Part 1 — Weibull Survival Distribution
+
+Suppose survival time $X$ has Weibull density
+
+$$
+f(x) = \frac{a}{\sigma}\left(\frac{x}{\sigma}\right)^{a-1}
+\exp\!\left[-\left(\frac{x}{\sigma}\right)^a\right],
+\quad x>0,
+$$
+
+where $a>0$ is the shape parameter and $\sigma>0$ is the scale parameter.
+
+## 1(a) Show the CDF
+
+Show that the cumulative distribution function is
+
+$$
+F(x) = 1 - \exp\!\left[-\left(\frac{x}{\sigma}\right)^a\right].
+$$
+
+**Tip:** Use the substitution $u = \left(\frac{t}{\sigma}\right)^a.$ Remember to change the bounds of integration when you change variables. When $x = 0$, $u = 0$. When $x = t$, $u = (t/\sigma)^a$.
+
+**Answer Here (Use either LaTex or put image in below and uncomment)**
+
+Image on attachment
+
+------------------------------------------------------------------------
+
+## 1(b) Find the survival function and hazard function
+
+Using your CDF result:
+
+1.  Find the survival function $S(x)$.
+
+**Answer Here (Use either LaTex math or put image in below and uncomment)**
+
+Image on attachment
+
+2.  Find the hazard function $h(x)$.
+
+**Answer Here (Use either LaTex or put image in below and uncomment)**
+
+Image on attachment
+
+------------------------------------------------------------------------
+
+## 1(c) Conceptual question about the hazard
+
+In a couple of sentences, explain what the hazard function you found above means in the context of survival times. Be sure to explain how (1) hazard is different from a probability and (2) what the mathematical form means about how the hazard function behaves over time.
+
+The function above is a way of getting an instantaneous failure rate at any single point in time. The way that it works is that the baseline hazard function starts us off with a certain shape of how hazards will change over time, and which multiplicity of that shape belongs to which group will be controlled by the design matrix and the betas.
+
+------------------------------------------------------------------------
+
+# Part 2 — Life Table / Conditional Survival
+
+We will use a simple life-table example to estimate a survival curve.
+
+The table below shows the number of patients treated in each cohort and how many were alive at the end of each follow-up year. Assume there is no censoring.
+
+For this exercise, treat the **column totals** as the life-table counts you need.
+
+## Raw data table
+
+| Year of Treatment | Patients Treated | 1st Year | 2nd Year | 3rd Year | 4th Year | 5th Year |
+|---:|---:|---:|---:|---:|---:|---:|
+| 2007 | 90 | 57 | 38 | 23 | 15 | 9 |
+| 2008 | 76 | 46 | 29 | 18 | 11 |  |
+| 2009 | 88 | 50 | 33 | 21 |  |  |
+| 2010 | 64 | 37 | 25 |  |  |  |
+| 2011 | 82 | 46 |  |  |  |  |
+| **Column Total** | **400** | **236** | **125** | **62** | **26** | **9** |
+
+------------------------------------------------------------------------
+
+## 2(a) Fill in the life-table calculation
+
+Complete the following table.
+
+| Interval | At Risk | Alive at End | Conditional Survival Probability | Total Survival |
+|----|---:|---:|---:|---:|
+| Year 1 | 400 | 236 | 1-0.59 = 0.41 | 1 \* 0.41 = 0.41 |
+| Year 2 | 190 | 125 | 1-0.6579 = 0.3421 | 0.41 \* 0.3421 = 0.1403 |
+| Year 3 | 100 | 62 | 1-0.62 = 0.38 | 0.4103 \* 0.38 = 0.0533 |
+| Year 4 | 41 | 26 | 1-0.6341 = 0.3659 | 0.0533 \* 0.3659 = 0.0195 |
+| Year 5 | 15 | 9 | 1-0.6 = 0.4 | 0.0195 \* 0.4 = 0.0078 |
+
+------------------------------------------------------------------------
+
+## 2(b) Interpretation
+
+Interpret the **Year 4 conditional probability** in words.
+
+It means that given you made it to the beginning of the fourth year, you have a 36.59% chance of making it to the end of that year.
+
+Interpret the **Year 4 total survival** in words.
+
+It means that for everyone who we've monitored, we've seen a 1.95% chance of making it to the end of year four.
+
+------------------------------------------------------------------------
+
+## 2(c) Plot the survival curve in R
+
+Fill in the survival values in the code below and plot the survival curve.
+
+```{r}
+years <- 0:5
+
+# Replace the NA values with your cumulative survival probabilities
+S <- c(1, 0.41, 0.1403, 0.0533, 0.0195, 0.0078)
+
+plot(
+  years, S,
+  type = "s",
+  ylim = c(0, 1),
+  xlab = "Year",
+  ylab = "Survival probability",
+  main = "Life-table survival curve"
+)
+
+points(years, S, pch = 16)
+```
+
+------------------------------------------------------------------------
+
+# Part 3 — Kaplan–Meier Curve by Hand
+
+A 14-day critical care study followed 10 patients.
+
+-   `event = 1` means death
+-   `event = 0` means censored
+
+There are 5 events total. At least two deaths occur at the same time. There are 2 censoring times before day 14 and 3 censoring times at day 14.
+
+## Dataset
+
+| ID  | Time | Event |
+|:---:|:----:|:-----:|
+|  1  |  2   |   1   |
+|  2  |  4   |   0   |
+|  3  |  5   |   1   |
+|  4  |  6   |   1   |
+|  5  |  6   |   1   |
+|  6  |  8   |   0   |
+|  7  |  9   |   1   |
+|  8  |  14  |   0   |
+|  9  |  14  |   0   |
+| 10  |  14  |   0   |
+
+------------------------------------------------------------------------
+
+## 3(a) Complete the KM calculation table
+
+Fill in the risk set, number of deaths, conditional survival, and total survival. Delete any rows that you do not need.
+
+| Time | At Risk | Deaths | Conditional Survival |         Total Survival |
+|------|--------:|-------:|---------------------:|-----------------------:|
+| 0    |      10 |      0 |                    1 |                      1 |
+| 1    |      10 |      1 |            1-0.1=0.9 |         1 \* 0.9 = 0.9 |
+| 5    |       8 |      1 |      1-(1/8) = 0.875 |   0.9 \* 0.875 = 0.788 |
+| 6    |       7 |      2 |      1-(2/7) = 0.714 | 0.788 \* 0.714 = 0.562 |
+| 9    |       4 |      1 |       1-(1/4) = 0.75 |  0.562 \* 0.75 = 0.422 |
+
+------------------------------------------------------------------------
+
+## 3(b) Draw the KM curve by hand
+
+Draw the Kaplan–Meier curve on graph paper. Make sure to include censoring marks on your curve. Then upload a photo of your curve and replace the filename below with your own. Make sure that you uncomment the code.
+
+**Put your plot here**
+
+Image on attachment
+
+------------------------------------------------------------------------
+
+## 3(c) Short interpretation
+
+What does the curve tell you about survival over time?
+
+It tells us that survival falls pretty consistently over time, although we aren't able to assess how long it takes to fall to zero due to the censored information.
+
+Where do the censoring times matter, and where do they not change the curve?
+
+The first two censoring times matter because they affect the subsequent drops in survival, but the last three don't because there aren't any more death events past that point so there aren't any events where they would change the number of people at risk.
+
+KM-Curves only drop at event times. Do you think this is a good way to estimate survival? Why and/or why not?
+
+I think that they should work well, with the obvious advantage of updating the survival probability more often or less often than at a single interval if necessary and doing a really good job at handling censored data in a conceptually sound way.
+
+------------------------------------------------------------------------
+
+# Part 4 — Kaplan–Meier Curves and the Log-Rank Test
+
+We now use the `lung` dataset in the `survival` package.
+
+## Variables
+
+-   `time`: survival time in days
+-   `status`: censoring status (`1 = censored`, `2 = dead`)
+-   `ph.ecog`: ECOG performance score rated by the physician
+
+### ECOG performance score
+
+-   `0` = asymptomatic
+-   `1` = symptomatic but completely ambulatory
+-   `2` = in bed less than 50% of the day
+-   `3` = in bed more than 50% of the day but not bedbound
+-   `4` = bedbound (not present in data)
+
+------------------------------------------------------------------------
+
+## 4(a) Prepare the data and plot KM curves
+
+Use `ph.ecog` as the grouping variable.
+
+```{r,fi}
+lung_use <- lung %>%
+  mutate(
+    ph.ecog = case_when(
+      ph.ecog %in% c(2, 3) ~ "2-3",
+      ph.ecog == 0 ~ "0",
+      ph.ecog == 1 ~ "1",
+      ph.ecog == 4 ~ "4",
+      TRUE ~ NA_character_
+    ),    
+    event = ifelse(status == 1, 0, 1)
+  ) %>%
+  filter(!is.na(time), !is.na(event), !is.na(ph.ecog))
+
+ggsurvplot(
+  survfit(Surv(time, event) ~ ph.ecog, data = lung_use),
+  xlab = "Days",
+  ylab = "Overall survival probability",
+  conf.int = TRUE
+)
+```
+
+After you look at the plot, which `ph.ecog` groups appear to have the best and worst survival?
+
+Group 0 seems to have the best survival, while the combined group 2 and 3 seems to have the worst.
+
+------------------------------------------------------------------------
+
+## 4(b) Log-rank test
+
+Run the log-rank test for these curves.
+
+```{r}
+survdiff(Surv(time, event) ~ ph.ecog, data = lung_use)
+```
+
+Report the p-value and interpret it in context.
+
+The p-value is 8 \* 10\^(-5) and it means that there is that probability of observing the same differences between any of the groups or more extreme differences given that the null is true that they are actually all the same.
+
+------------------------------------------------------------------------
+
+## 4(c) Conceptual question about the log-rank test statistic
+
+The log-rank test compares observed and expected deaths over time.
+
+Suppose for one group $g$, the total of
+
+$$
+\sum_j (O_{gj} - E_{gj})
+$$
+
+is positive. What does that mean in words? In your answer, be clear about whether the group had more or fewer deaths than expected.
+
+It means that for that group, survival was consistently better that it was for the entire dataset of people together (they had fewer death events).
+
+What if it is negative? In your answer, be clear about whether the group had more or fewer deaths than expected.
+
+It means that for that group, survival was consistently worse that it was for the entire dataset of people together (they had more death events).
+
+Suppose one group has consistently more observed deaths than expected early in follow-up, but fewer than expected later. What happens to the log-rank statistic?
+
+It would mean that the survival curves would cross, which would break the log-rank test. The log-rank test is really only built to test hypotheses about survival in situations where one group shows a distinct advantage over time, otherwise the O - E could cancel out when summed across the curve even if there is a meaningful difference in survival between groups both early in the sampling and late in the sampling.
+
+------------------------------------------------------------------------

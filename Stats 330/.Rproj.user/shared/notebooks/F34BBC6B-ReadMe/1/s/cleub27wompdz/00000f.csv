@@ -1,0 +1,16 @@
+"0","factors_to_consider <- c(""GDP"", ""Social"", ""Health"", ""Freedom"", ""Generosity"", ""Corruption"")"
+"0",""
+"0","for (factor in factors_to_consider) {"
+"0","  plot <- ggplot(data = data, mapping = aes_string(x = factor, y = ""Score"")) +"
+"0","  geom_point(color = ""blue"", size = 1) +"
+"0","  labs(title = paste(""The Relationship Between"", factor, ""and Happiness Score""),"
+"0","       x = factor,"
+"0","       y = ""Happiness Score"") +"
+"0","  geom_smooth(method = ""lm"", formula = y ~ x, se = FALSE) +"
+"0","  theme_minimal()"
+"0",""
+"0","  print(plot)"
+"0","}"
+"2","Warning: `aes_string()` was deprecated in ggplot2 3.0.0.
+Please use tidy evaluation idioms with `aes()`. 
+See also `vignette(""ggplot2-in-packages"")` for more information."

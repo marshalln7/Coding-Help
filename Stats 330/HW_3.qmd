@@ -1,0 +1,277 @@
+---
+title: "Homework 3"
+subtitle: Simple Linear Regression Model Inference
+author: Marshall 
+format: 
+  html:
+    embed-resources: true 
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggfortify)
+```
+
+## Data and Description
+
+Climate change has left California particularly vulnerable to severe drought conditions. One factor affecting water availability in Southern California is stream runoff from snowfall. If runoff could be predicted, engineers, planners, and policy makers could do their jobs more effectively because they would have an estimate as to how much water is entering the area.
+
+The Runoff Water data set compares the **stream runoff (column 2)** (in acre-feet) of a river near Bishop, California (due east of San Jose) with **snowfall (column 1)** (in inches) at a site in the Sierra Nevada mountains. The data set contains 43 years' worth of measurements. Download the water.txt file from Canvas, and put it in the same folder as this Quarto file.
+
+#### 0. Replace the text "\< PUT YOUR NAME HERE \>" (above next to "author:") with your full name.
+
+#### 1. Read in the data set, and call the dataframe "water". Print a summary of the data and make sure the data makes sense.
+
+```{r}
+water <- read_table("water.txt")
+summary(water)
+```
+
+#### 2. Create (and display) a scatterplot of the data with variables on the appropriate axes. Make you plot look professional (e.g., axis labels are descriptive).
+
+```{r, fig.align='center'}
+plot <- ggplot(data = water, mapping = aes(x = Precip, y = Runoff)) +
+  geom_point(color = "blue", size = 1) +
+  labs(title = "The Relationship Between Precipitation and Runoff",
+       x = "Precipitation (inches)",
+       y = "Runoff (acre-feet)") +
+  theme_minimal()
+
+print(plot)
+```
+
+#### 3. Calculate (and report) the correlation coefficient. Use that and the scatterplot to briefly describe the relationship between Stream Runoff and Snowfall.
+
+```{r, fig.align='center'}
+correlation <- cor(water$Precip, water$Runoff)
+print(correlation)
+```
+
+Given our correlation coefficient, we can tell that the variables have a strong, positive correlation.
+
+#### 4. Add the OLS regression line to the scatterplot you created in 2. Display the plot.
+
+```{r, fig.align='center'}
+plot <- ggplot(data = water, mapping = aes(x = Precip, y = Runoff)) +
+  geom_point(color = "blue", size = 1) +
+  labs(title = "The Relationship Between Precipitation and Runoff",
+       x = "Precipitation (inches)",
+       y = "Runoff (acre-feet)") +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  theme_minimal()
+
+print(plot)
+```
+
+#### 5. Fit a simple linear regression model to the data (no transformations). Display a summary of the linear model.
+
+```{r}
+linear_model <- lm(Runoff ~ Precip, data = water)
+summary(linear_model)
+```
+
+### Questions 6 to 10 involve using diagnostics to determine if the LINE linear regression assumptions are met and if there are influential observations. For each assumption, (1) perform appropriate diagnostics to determine if the assumption is violated, and (2) explain whether or not you think the assumption is violated and why you think that.
+
+#### 6. (L) $X$ vs $Y$ is linear
+
+```{r, fig.align='center'}
+autoplot(linear_model, which = 1)
+```
+
+The line there shows a curve down, but I wouldn't say that there is a overwhelming trend up or down for the residuals so this one probably passes.
+
+#### 7. (I) The errors are independent (no diagnostic tools necessary in this case - just think about how the data was collected and briefly write your thoughts)
+
+The errors wouldn't be totally independent because the weather today influences the weather tomorrow in a type of time series, and the amount of dirt that can run off is influenced by the amount of dirt that has already eroded. I'm not sure if it's enough to not do a linear regression but it's just something to think about.
+
+#### 8. (N) The errors are normally distributed
+
+```{r, fig.align='center'}
+autoplot(linear_model, which = 2)
+```
+
+There are some serious problems with the data points in the tails here. I would say that this assumption is not met!
+
+#### 9. (E) The errors have equal (constant) variance across all values of $X$ (homoscedastic)
+
+```{r, fig.align='center'}
+autoplot(linear_model, which = 3)
+```
+
+The variance seems to go up at the very end but I think that's just because there isn't very much data towards the right side of the graph. I would pass it on this assumption.
+
+#### 10. Check for influential points and report your findings.
+
+```{r, fig.align='center'}
+autoplot(linear_model, which = 4)
+```
+
+We have a few values that stick out here that we could look into, but nothing above 0.5 so I wouldn't say that it's anything to be too worried about.
+
+### This was, hopefully, good practice for assessing model assumptions. We will use the original model (no transformations) for the rest of the questions.
+
+#### 11. Mathematically write out the fitted simple linear regression model for this data set using the coefficients you found above (do not use betas or matrix notation). Do not use "X" and "Y" in your model - use descriptive variable names.
+
+$$\begin{align}
+    Runoff &= 27014.6 + 3752.5 \times Precipitation + \epsilon_i \\ 
+    \epsilon_i &\stackrel{iid}{\sim} N(0, 2.231^2) 
+    \end{align} $$
+
+#### 12. Compute a 95% confidence interval for the slope using the output from the lm() function (to get the standard error of $\beta_1$) in tandem with the qt() function (to get the correct critical value).
+
+```{r}
+coefficient_info <- summary(linear_model)$coefficients
+slope_se <- coefficient_info["Precip", "Std. Error"]
+lower_bound <- coefficient_info["Precip", "Estimate"] + qt(0.025, 41) * slope_se
+upper_bound <- coefficient_info["Precip", "Estimate"] + qt(0.975, 41) * slope_se
+print(c(lower_bound, upper_bound))
+```
+
+The interval is \[3316.809, 4188.162\]
+
+#### 13. Compute a 95% confidence interval for the slope using the confint() function in R (you should get the same answer as in 12). Interpret the confidence interval.
+
+```{r}
+confint(linear_model, parm = 2, level = 0.95)
+```
+
+This interval tells us that we are 95% confident that the true value of the slope falls between 3316.809 and 4188.162.
+
+#### 14. Based on the confidence interval, is there a statistically significant linear association between snowfall and stream water? Why or why not?
+
+There is, because the confidence interval doesn't include zero.
+
+#### 15. Print a summary of the linear model. Interpret the results from the hypothesis test output for the slope.
+
+```{r}
+summary(linear_model)
+```
+
+The p-value for the hypothesis test on the estimate of the coefficient for Precipitation is \< 2e-16, which means we can reject the null hypothesis that there is no relationship between precipitation in the mountains and runoff in the river.
+
+#### 16. Briefly describe the difference between (1) a confidence interval for the slope, (2) a confidence interval for the conditional mean of $Y$ given $x$, and (3) a prediction interval for individual observations.
+
+The confidence interval for the slope describes the region within which we are 95% confident that the real slope falls. The confidence interval for the conditional mean of Y given x represents a function that shows for each x value where we are 95% confident that the mean of y will fall. The prediction interval for individual observations is the range of y inside which we are 95% confident that the true value will fall for each x value.
+
+#### 17. Compute, print, *and interpret* a 95% confidence interval for the average of $Y$ when $x_i=30$. You may use the predict() function in R.
+
+```{r}
+confidence_interval_1 <- predict(linear_model, 
+                                 newdata = data.frame(Precip = 30),
+                                 interval = "confidence",
+                                 level = 0.95)
+
+print(confidence_interval_1)
+```
+
+If there is 30 inches of precipitation, then we can be 95% confident that the runoff will be between 139589.2 and 131902.2 acre-feet of runoff.
+
+#### 18. Create a confidence band for the average of $Y$ over a sequence of $X$ values spanning the range of the data, and overlay this band (using a distinct color) on your previous scatterplot that you created in 4. Print the plot.
+
+```{r}
+plot <- ggplot(data = water, mapping = aes(x = Precip, y = Runoff)) +
+  geom_point(color = "blue", size = 1) +
+  labs(title = "The Relationship Between Precipitation and Runoff",
+       x = "Precipitation (inches)",
+       y = "Runoff (acre-feet)") +
+  geom_smooth(method = "lm", formula = y ~ x, se = TRUE, level = 0.95) +
+  theme_minimal()
+
+print(plot)
+```
+
+#### 19. Briefly explain why the width of the confidence band is not uniform across all $X$ values.
+
+The width of the confidence band will never be uniform over all values because we will always have a better estimate for the average closer to the mean of the observed x values, and thus the CI will always be thinner closer to that x value.
+
+#### 20. Compute, print, *and interpret* a 95% prediction interval for $Y$ when $x_i=30$. You may use the predict() function in R.
+
+```{r}
+CI_for_30 <- predict(linear_model,
+                     newdata = data.frame(Precip = 30),
+                     interval = 'predict',
+                     level = 0.95)
+
+print(CI_for_30)
+```
+
+If there is 30 inches of precipitation, then we can be 95% confident that the runoff will be between 139589.2 and 131902.2 acre-feet of runoff.
+
+#### 21. Create a prediction band for $Y$ over a sequence of $X$ values spanning the range of the data, and overlay this band (using a distinct color) on your previous scatterplot that you created in 4. Print the plot.
+
+```{r}
+
+interval_values <- seq(min(water$Precip), max(water$Precip), length.out = 100)
+prediction_interval <- predict(linear_model, 
+                   level = 0.95,
+                   newdata = data.frame(Precip = interval_values),
+                   interval = "prediction")
+
+prediction_interval <- rename(as_tibble(prediction_interval), "Runoff" = fit)
+prediction_interval <- mutate(prediction_interval, Precip = interval_values)
+
+
+plot <- ggplot(data = water, mapping = aes(x = Precip, y = Runoff)) +
+  geom_point(color = "blue", size = 1) +
+  labs(title = "The Relationship Between Precipitation and Runoff",
+       x = "Precipitation (inches)",
+       y = "Runoff (acre-feet)") +
+  theme_minimal() +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  geom_ribbon(data = prediction_interval,
+              aes(ymin = lwr, ymax = upr),
+              alpha = 0.25, # This just changes the opacity of the band
+              outline.type = 'both')
+
+print(plot)
+
+
+```
+
+#### 22. Briefly explain how/why the prediction band differs from the confidence band.
+
+The band in 21 is different from the band in 18 because it's showing us the confidence interval for each precipitation value that we can use to understand where we can be confident that the true value of the runoff will lie, while the previous one was meant to show us where we can be confident that the average of the runoffs recorded at each precipitation value will lie. I'm assuming that's what you're asking.
+
+#### 23. What is the MSE (Mean Square Error) for the linear model you fit?
+
+```{r}
+mse <- mean(residuals(linear_model)^2)
+print(mse)
+```
+
+#### 24. Briefly explain (1) what the MSE estimates and (2) a drawback to using it as a model evaluation metric.
+
+It is estimating how closely the measured values are represented by the model by averaging the square difference for each measurement. Drawbacks to this metric include the fact that adding more predictors will always drive MSE up, and may not be representative of how the model will do out of sample.
+
+#### 25. Calculate the RMSE (Root Mean Square Error) for the linear model you fit. Print and interpret the result.
+
+```{r}
+rmse <- sqrt(mse)
+print(rmse)
+```
+
+The RMSE is meant to be on roughly the same scale as the model, so it's suggesting that on average the measurements are about 8,712 acre-feet off from what the model would predict them to be.
+
+#### 26. Print a summary of the linear model. Briefly interpret the R-Squared (Coefficient of Determination) value.
+
+```{r}
+summary(linear_model)
+```
+
+The R-squared is 0.8807, which means that about 88.07% of the variability in the data is explained by the predictors, which in our case means that 88.07% of the variation in the runoff is explained by the precipitation.
+
+#### 27. What is the difference between the R-Squared value and the Adjusted R-Squared (shown in the summary output above)?
+
+The difference is that the adjusted R-squared is being adjusted for the number of predictors, which could bias our R-squared. In this case, they're pretty close, because we have only one predictor in the model.
+
+#### 28. Look at the F-Statistic and corresponding $p$-value from the summary of the linear model (output shown above). Do these values indicate that $X$ has a statistically significant linear association with $Y$?
+
+Yes, the F-stat of 302.6 and p-value of 2.2e-16 indicate that there is a statistically significant linear association between precipitation and runoff because the p-value is well under our alpha value of 0.05.
+
+#### 29. Briefly summarize what you learned, personally, from this analysis about the statistics, model fitting process, etc.
+
+I actually learned a lot doing this homework. I learned about the importance of thinking about both the predictions and the average of each of the prediction levels as separate from each other, and how to represent that in a way that makes sense. I learned that predict() and summary() are way more powerful than I'd assumed, as well as how to use geom_smooth() more effectively to represent my data.
+
+#### 30. Briefly summarize what you learned from this analysis *to a non-statistician*. Write a few sentences about (1) the purpose of this data set and analysis and (2) what you learned about this data set from your analysis. Write your response as if you were addressing the mayor of city that relies on the stream runoff from the Sierras (avoid using statistics jargon) and just provide the main take-aways.
+
+We took some measurements to see if there was any kind of relationship between how much rain falls in the Sierras and how much runoff we get in our local river. From our study, we learned that the precipitation in the mountains really does matter when it comes to determining how much runoff we're going to get. In general, for every extra inch of precipitation overall, we can expect about 3752 acre-feet more water for the town to use.

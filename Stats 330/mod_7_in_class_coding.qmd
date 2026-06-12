@@ -1,0 +1,276 @@
+---
+title: "Module 7 - Logistic Regression"
+subtitle: <center> <h1>In-Class Analysis</h1> </center>
+format: 
+  html:
+    embed-resources: true 
+---
+
+```{=html}
+<style type="text/css">
+h1.title {
+font-size: 40px;
+text-align: center;
+}
+</style>
+```
+
+```{r setup, include=FALSE}
+# load packages here
+library(tidyverse)
+library(corrplot)  # for the correlation matrix
+library(bestglm)  # for variable selection
+library(car)  # for the VIFs
+library(pROC)  # for the ROC curve
+library(ROCR)  # for the color-coded ROC curve
+```
+
+## Data and Description
+
+Coronary heart disease (CHD) refers to a narrowing of the coronary arteries, the blood vessels that supply oxygen and blood to the heart. It is also known as coronary artery disease. It is a major cause of illness and death. CHD normally happens when cholesterol accumulates on the artery walls, creating plaques. The arteries narrow, reducing blood flow to the heart. Sometimes, a clot can obstruct the flow of blood to the heart muscle. CHD commonly causes angina pectoris (chest pain), shortness of breath, myocardial infarction, or a heart attack. It is the most common type of heart disease in the United States, where it accounts for 370,000 deaths every year.
+
+The CHD data set contains information on 757 subjects (randomly selected) aged 39 to 59 years old and free of heart disease as determined by electrocardiogram at an initial screening. At baseline the variables in the following table were collected. Follow-up continued for 8.5 years with repeat examinations to determine if patients developed CHD. The goal is to determine risk factors (ways of healthy living) to avoid CHD.
+
+| Variable | Description |
+|----|----|
+| age | Age in years |
+| height | Height in inches |
+| weight | Weight in pounds |
+| sbp | Systolic blood pressure in mmHg (millimeters of mercury) |
+| dbp | Diastolic blood pressure in mmHg (millimeters of mercury) |
+| chol | Cholesterol in mg/dL (milligrams of cholesterol per deciliter of blood) |
+| cigs | Number of cigarettes smoked a day |
+
+Do the following:
+
+1.  Download the "CHD.csv" file from Canvas and put it in the same folder as this Quarto file.
+2.  Read in the data set, call it "heart", and change the class of the response (chd) to a factor. You can do this using the `mutate` function from tidyverse and `as.factor`.
+
+```{r}
+heart <- read_csv("CHD.csv") |> 
+  mutate(chd = as.factor(chd))
+str(heart)
+```
+
+## Explore the data. We will make just a few plots for illustration. For the age variable, create a jittered scatterplot, a boxplot, and a contingency table.
+
+```{r, fig.align='center'}
+# Jittered Scatterplot for age
+ggplot(data = heart) +
+  geom_point(mapping = aes(y = chd, x = cigs)) +
+  geom_jitter(mapping = aes(y = chd, x = cigs),
+              height = 0.1) +
+  theme(aspect.ratio = 1)
+
+# Boxplot for age
+ggplot(data = heart) +
+  geom_boxplot(mapping = aes(y = age, x = chd)) +
+  theme(aspect.ratio = 1) +
+  coord_flip()
+
+# Cross-Tabulation (Contingency Table) for age 
+table(heart$age, heart$chd)
+
+
+```
+
+## Perform some type of variable selection procedure to determine which variables to include in the model. Hint: You will need to specify the "family" argument. Hint 2: If you use cross-validation, the response variable should *not* be a factor for this function to work.
+
+```{r, fig.align='center'}
+heart <- data.frame(heart)
+
+heart$chd <- ifelse(heart$chd == "no", 0, 1)
+
+# Try using best subsets (exhaustive) with the BIC metric
+heart_best_subsets_bic <- bestglm(heart,
+                                  TopModels = 1,
+                                  family = binomial)
+
+summary(heart_best_subsets_bic$BestModel)
+
+```
+
+## Use the `glm` function to fit a logistic regression model using the variables identified above. Note that you will need to include the following argument to the `glm` function to indicate you are performing logistic regression: `family = binomial(link = "logit")`.
+
+```{r, fig.align='center'}
+heart_logistic <- glm(data = heart, formula = chd ~ ., family = binomial(link="logit"))
+summary(heart_logistic)
+
+```
+
+## Briefly, check the logistic regression model assumption: The x's vs log odds are linear (monotone in probability)
+
+```{r, fig.align='center'}
+# here is the plot for age - repeat for the other predictors
+scatter.smooth(x = heart$age, y = as.numeric(heart$chd) - 1)
+
+
+```
+
+## Briefly, check the logistic regression model assumption: No multicollinearity, using the VIFs
+
+```{r, fig.align='center'}
+## this code uses the pseudo R-Squared
+# vif(heart_logistic)
+
+# this code uses the real R-Squared (and is valid since we are looking at how
+# the predictor variables relate, and we are not using the response)
+heart_lm <- lm(as.numeric(chd) ~ age + weight + sbp + chol + cigs,
+               data = heart)
+vif(heart_lm)
+
+```
+
+## Briefly, check the logistic regression model assumption: No influential observations
+
+```{r}
+# plot(heart_logistic, which = 5, cook.levels = .5) # Residuals by leverage
+```
+
+## Create confidence intervals for $\beta_k$, $\exp\{\beta_k\}$, and $100 \times (\exp\{\beta_k\} - 1)%$ for all predictors using the `confint` function. Make sure the confidence intervals for age match the ones in the notes and that you can interpret the intervals correctly.
+
+```{r, fig.align='center'}
+# your code here
+# hint: for the last two confidence intervals, you will just be transforming
+# the values you get from confint (you will not be using different arguments
+# to the function)
+```
+
+## Calculate the predicted probability that a patient has CHD using the `predict` function for a patient where age = 50, weight = 182, sbp = 136, chol = 253, and cigs = 20.
+
+```{r, eval=FALSE}
+# your code here
+# hint: Use predict(). Adding the type = "response" argument will automatically
+# give you a probability, or you can omit that argument and convert the log odds
+# to a probability by hand.
+```
+
+## Calculate a 95% confidence interval for the predicted probability that a patient has CHD for a patient where age = 50, weight = 182, sbp = 136, chol = 253, and cigs = 20.
+
+```{r, fig.align='center'}
+# your code here
+# hint: Use predict() with se.fit = TRUE. Then, compute the margin of error by 
+# hand followed by the upper and lower bounds. That CI will be on the log
+# odds scale, so lastly, convert the bounds to be probabilities. 
+
+```
+
+## Check the logistic regression model performance
+
+### Compute the likelihood ratio test statistic (aka the deviance, aka the model chi-squared test) and its corresponding p-value. Hint: use the deviances reported in the logistic regression model output for the test statistic, and use the `pchisq` function for the p-value.
+
+```{r, fig.align='center'}
+# Your code here
+```
+
+### Compute the Pseudo R-Squared. Hint: use the deviances reported in the logistic regression model output.
+
+```{r, fig.align='center'}
+# Your code here
+
+```
+
+### Find the best cutoff value for classification by minimizing the percent misclassified (c in the notes).
+
+```{r, fig.align='center'}
+## get the predicted probabilities for all 757 patients:
+
+# heart_preds <- predict(heart_logistic, type = "response")
+
+## create a sequence from 0 to 1 to represent all possible cut-off values that
+## we could choose:
+
+# possible_cutoffs <- seq(0, 1, length = 100)
+
+## transform heart$chd from a factor with levels "yes" and "no" to a factor with 
+## levels 1 and 0:
+
+# heart_binary <- ifelse(heart$chd == "yes", 1, 0)
+
+## create an empty vector where we will store the percent misclassified for each
+## possible cut-off value we created:
+
+# percent_misclass <- rep(NA, length(possible_cutoffs))
+
+## for each possible cut-off value, (1) grab the cut-off value, (2) for all 757
+## patients, store a 1 in "classify" if their predicted probability is larger
+## than the cut-off value, and (3) compute the average percent misclassified
+## across the 757 patients when using that cut-off by averaging the number of
+## times "classify" (0 or 1 based on how that cut-off classified a person) is
+## not the same as heart_binary (the truth):
+
+# for(i in 1:length(possible_cutoffs)) {
+#   cutoff <- possible_cutoffs[i]  # (1)
+#   classify <- ifelse(heart_preds > cutoff, 1, 0)  # (2) 
+#   percent_misclass[i] <- mean(classify != heart_binary)  # (3)
+# }
+
+## percent_misclass holds the average misclassification rates for each cut-off
+
+## put this information in a dataframe so we can plot it with ggplot:
+
+# misclass_data <- as.data.frame(cbind(percent_misclass, possible_cutoffs))
+
+## plot the misclassification rate against the cut-off value:
+
+# ggplot(data = misclass_data) +
+#   geom_line(mapping = aes(x = possible_cutoffs, y = percent_misclass),
+#             size = 2) +
+#   theme_bw() + 
+#   xlab("Cutoff Value") +
+#   ylab("Percent Misclassified") +
+#   theme(aspect.ratio = 1)
+
+## choose the "best" cut-off that minimizes the percent misclassified:
+
+# cutoff <- possible_cutoffs[which.min(percent_misclass)]
+# cutoff
+
+```
+
+### Create a confusion matrix based on the best cutoff (note that the order is changed in the table created here vs the table in the notes)
+
+```{r,fig.align='center'}
+# your code here
+```
+
+### Plot the ROC curve and obtain the AUC
+
+```{r,fig.align='center'}
+## METHOD 1: using the pROC package
+# my_roc <- roc(heart$chd, heart_preds)
+
+# ggplot() +
+#   geom_path(mapping = aes(x = 1 - my_roc$specificities, 
+#                           y = my_roc$sensitivities), 
+#             size = 2) +
+#   geom_abline(slope = 1, intercept = 0) +
+#   theme_bw() + 
+#   xlab("1 - Specificity (False Positive Rate)") +
+#   ylab("Sensitivity (True Positive Rate)") +
+#   theme(aspect.ratio = 1)
+
+# auc(my_roc)  # AUC
+
+## METHOD 2: using the ROCR package (ROC curve colored based on cutoff value)
+
+# pred <- prediction(heart_preds, heart$chd)
+# perf <- performance(pred, "tpr", "fpr")  # tpr = true positive rate, 
+
+## fpr = false positive rate
+
+# plot(perf, 
+#      colorize = TRUE, 
+#      lwd = 6,
+#      xlab = "1 - Specificity (False Positive Rate)",
+#      ylab = "Sensitivity (True Positive Rate)")
+# abline(a = 0, b = 1)
+
+## AUC
+# auc <- performance(pred, measure = "auc")
+# auc@y.values[[1]]
+```
+
+## Summary and Conclusions
+
+Logistic regression is used when you have a binary response variable. Many of the things we learned for linear regression apply to logistic regression, but there are several differences. For instance, we have few model assumptions, we measure performance based on deviances (instead of sums of squares), the coefficients are in terms of log odds ratios, and we can perform classification.

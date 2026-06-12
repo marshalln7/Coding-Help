@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.26">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Marshall Nielsen">
+
+<title>Homework #2 — Clinical Trials &amp; Epidemiological Risk</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="hw2_files/libs/clipboard/clipboard.min.js"></script>
+<script src="hw2_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="hw2_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="hw2_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="hw2_files/libs/quarto-html/popper.min.js"></script>
+<script src="hw2_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="hw2_files/libs/quarto-html/anchor.min.js"></script>
+<link href="hw2_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="hw2_files/libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="hw2_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="hw2_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="hw2_files/libs/bootstrap/bootstrap-9e3ffae467580fdb927a41352e75a2e0.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Homework #2 — Clinical Trials &amp; Epidemiological Risk</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Marshall Nielsen </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="part-1-power-and-simulation-in-als-trials" class="level1">
+<h1>Part 1: Power and Simulation in ALS Trials</h1>
+<section id="the-neuro-dynamics-story" class="level2">
+<h2 class="anchored" data-anchor-id="the-neuro-dynamics-story">The “Neuro-Dynamics” Story</h2>
+<p>A fictional biotech company, <strong>Neuro-Dynamics</strong>, has developed a new drug, <strong>ALS-101</strong>, aimed at slowing functional decline in patients with Amyotrophic Lateral Sclerosis (ALS). The primary endpoint is the 12-month change in the <strong>ALS Functional Rating Scale-Revised (ALSFRS-R)</strong>. Scores range from 0 to 48; higher scores indicate higher functional ability.</p>
+<p>Based on historical RCT data, researchers expect the placebo group to decline by an average of 12 points (<span class="math inline">\(\mu_1 = -12\)</span>) with a standard deviation (<span class="math inline">\(\sigma\)</span>) of 8 points. They hope ALS-101 will slow disease decline by about <span class="math inline">\(33\%\)</span>, meaning that the average decline would be about 8 points (<span class="math inline">\(\mu_2 = -8\)</span>), creating a target effect size (<span class="math inline">\(\delta\)</span>) of 4 points. Preliminary (for part A), we’ll assume that the treatment and control groups have the same standard deviation.</p>
+<section id="a.-analytic-power-calculation" class="level3">
+<h3 class="anchored" data-anchor-id="a.-analytic-power-calculation">A. Analytic Power Calculation</h3>
+<p>Use the <code>power.t.test()</code> function in R to determine the required sample size per group (<span class="math inline">\(n\)</span>) to achieve <strong>90% power</strong> with a two-sided <strong>significance level (</strong><span class="math inline">\(\alpha\)</span>) of 0.05. Round up to the nearest integer.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">power.t.test</span>(<span class="at">n=</span><span class="cn">NULL</span>, <span class="at">delta=</span><span class="dv">4</span>, <span class="at">sd=</span><span class="dv">8</span>, <span class="at">sig.level =</span> <span class="fl">0.05</span>, <span class="at">power=</span><span class="fl">0.9</span>, <span class="at">type=</span><span class="st">"two.sample"</span>, <span class="at">alternative =</span> <span class="st">"two.sided"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+     Two-sample t test power calculation 
+
+              n = 85.03129
+          delta = 4
+             sd = 8
+      sig.level = 0.05
+          power = 0.9
+    alternative = two.sided
+
+NOTE: n is number in *each* group</code></pre>
+</div>
+</div>
+<ol type="1">
+<li><strong>Question:</strong> How many participants must Neuro-Dynamics recruit <strong>in total</strong> (both groups) for this study? Recall that <span class="math inline">\(n\)</span> is the sample size for one group.</li>
+</ol>
+<ul>
+<li><em>Answer: About 85 people in each group so 170 total</em></li>
+</ul>
+</section>
+<section id="b.-power-by-simulation" class="level3">
+<h3 class="anchored" data-anchor-id="b.-power-by-simulation">B. Power by Simulation</h3>
+<p>The lead scientist is concerned that ALSFRS-R decline data is (i) not perfectly normal for both groups and (ii) that the treatment group will have more variability than the control group.</p>
+<p>To test robustness of the power, we will simulate data in the following ways:</p>
+<ul>
+<li>Control group - using a <span class="math inline">\(t\)</span>-distribution with 4 degrees of freedom and <span class="math inline">\(sd = 8\)</span>.</li>
+<li>Treatment group - using a <span class="math inline">\(t\)</span>-distribution with 4 degrees of freedom and <span class="math inline">\(sd = 10\)</span>.</li>
+</ul>
+<p>The <span class="math inline">\(t\)</span>-distribution has “heavier tails” than a normal distribution, making extreme declines more likely than a standard normal curve would suggest. One tricky aspect of this is that a standard <span class="math inline">\(t\)</span>-distribution does not have variance 1, but rather <span class="math inline">\(\frac{df}{df - 2}\)</span> for degrees of freedom <span class="math inline">\(df &gt; 2\)</span>. So, a couple of important notes:</p>
+<ul>
+<li>To get a variance of 64 (sd = 8), you need <code>4 * sqrt(2) * rt(1,df = 4)</code></li>
+<li>To get a variance of 100 (sd = 10), you need <code>5 * sqrt(2) * rt(1,df = 4)</code></li>
+<li>To get a mean that isn’t zero, you need to add (or subtract) the mean. For example <code>rt(1,df = 4) + 2</code> will have mean and variance of 2.</li>
+</ul>
+<p>Write a simulation to estimate the power of a two-sample <span class="math inline">\(t\)</span>-test under these conditions. Use the <span class="math inline">\(n\)</span> (rounded up) you calculated in Part A.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">01162026</span>) </span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Use n_per_group from last task</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>n_sims <span class="ot">&lt;-</span> <span class="dv">10000</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>p_values <span class="ot">&lt;-</span> <span class="fu">numeric</span>(n_sims)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n_sims){</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Simulate Placebo group (Mean decline -12) using rt(,df = 4) w/ var = 64 (sd = 8)</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  group_p <span class="ot">&lt;-</span> <span class="dv">4</span> <span class="sc">*</span> <span class="fu">sqrt</span>(<span class="dv">2</span>) <span class="sc">*</span> <span class="fu">rt</span>(<span class="dv">86</span>, <span class="at">df =</span> <span class="dv">4</span>) <span class="sc">-</span> <span class="dv">12</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Simulate ALS-101 (Mean decline -8) using rt(,df =4) w/ var = 100 (sd = 10)</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  group_a <span class="ot">&lt;-</span> <span class="dv">5</span> <span class="sc">*</span> <span class="fu">sqrt</span>(<span class="dv">2</span>) <span class="sc">*</span> <span class="fu">rt</span>(<span class="dv">86</span>, <span class="at">df =</span> <span class="dv">4</span>) <span class="sc">-</span> <span class="dv">8</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Perform t-test and save the p-value</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  p_values[i] <span class="ot">&lt;-</span> <span class="fu">t.test</span>(group_p, group_a)<span class="sc">$</span>p.value</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate power `sim_power` (i.e., proportion of p-values &lt; 0.05)</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>sim_power <span class="ot">&lt;-</span> p_values <span class="sc">&lt;=</span> <span class="fl">0.05</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">sum</span>(sim_power) <span class="sc">/</span> <span class="dv">10000</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.8222</code></pre>
+</div>
+</div>
+<ol type="1">
+<li><strong>Question:</strong> How does your simulated power compare to the 90% target? Why might a heavy-tailed distribution and heteroscedasticity change the power compared to the standard normal assumption?</li>
+</ol>
+<ul>
+<li><em>Answer: It looks like the power is actually lower here, which makes conceptual sense. A heavy tailed distribution like a t-distribution and a higher variance in the experimental group will make for a sampling distribution that has higher variance as well. If the sampling distribution of the experimental group has greater variance, we will see more instances where the average value of the experimental group ends up on the opposite side of the threshold of significance meaning that we fail to reject our null.</em></li>
+</ul>
+</section>
+</section>
+</section>
+<section id="part-2-observational-study-concepts" class="level1">
+<h1>Part 2: Observational Study Concepts</h1>
+<section id="a.-conceptual-short-response" class="level3">
+<h3 class="anchored" data-anchor-id="a.-conceptual-short-response">A. Conceptual Short Response</h3>
+<ol type="1">
+<li><strong>The “Fuzzy” Boundary:</strong> Based on the RCT slide deck, explain why the phases of drug development (I-IV) are often described as “fuzzy” rather than rigid, separate boxes.
+<ul>
+<li><em>Answer: The phases of drug development are often fuzzy because you’re trying to get them done as fast as possible in order to get to market. In order to do this, sometimes you’ll do phase I and phase II at the same time, or a phase II and III without a clear boundary. The designation of the phases is really more of a discription of the types of information that you’re looking to find which can often be blurred together as the study branches off into multiple arms and certain trials are used for multiple purposes.</em></li>
+</ul></li>
+<li><strong>The Healthy User Bias:</strong> In a cohort study looking at physical activity and Parkinson’s Disease risk, researchers found that people who exercise more have a lower risk of Parkinson’s Disease. However, if people with early, undiagnosed muscle weakness (pre-clinical Parkinson’s Disease) stop exercising before the study begins, what kind of bias may be introduced?.
+<ul>
+<li><em>Answer: This can introduce a selection bias because when potential subjects who are already showing signs of muscle weakness sign up for the study, they will be placed in the “doesn’t exercise” group, not because of their habits before contracting Parkinson’s Disease, but because they already have it, making it look like people who don’t exercise get Parkinson’s Disease whether or not that is actually true.</em></li>
+</ul></li>
+</ol>
+</section>
+<section id="b.-choosing-a-design" class="level3">
+<h3 class="anchored" data-anchor-id="b.-choosing-a-design">B. Choosing a Design</h3>
+<p>Identify the most appropriate observational study design for the following (Cohort, Case-Control, or Cross-Sectional):</p>
+<ol type="1">
+<li>You want to investigate whether a specific rare form of pediatric leukemia is linked to living near high-voltage power lines. Because the disease is so rare, you start by identifying children who already have the leukemia and then look back at their history of residence.
+<ul>
+<li><em>Design: Case-Control</em></li>
+</ul></li>
+<li>You want to follow a group of 5,000 workers who were exposed to a specific industrial chemical (and a group of 5,000 unexposed workers) over the next 20 years to see who develops respiratory illness.
+<ul>
+<li><em>Design: Cohort</em></li>
+</ul></li>
+<li>You want to conduct a one-time survey of university students in October to determine how many currently have a valid flu vaccination and their current self-reported stress levels.
+<ul>
+<li><em>Design: Cross-sectional</em></li>
+</ul></li>
+</ol>
+</section>
+</section>
+<section id="part-3-computing-risk-and-association" class="level1">
+<h1>Part 3: Computing Risk and Association</h1>
+<section id="a.-cohort-study-smoking-and-mortality" class="level3">
+<h3 class="anchored" data-anchor-id="a.-cohort-study-smoking-and-mortality">A. Cohort Study: Smoking and Mortality</h3>
+<p>This example is based on the <strong>British Doctors Study</strong> (Doll &amp; Hill, 1954), a landmark prospective cohort study. Researchers followed thousands of doctors to see if smoking was associated with death from lung cancer. (Data are simplified for calculation).</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Exposure</th>
+<th style="text-align: center;">Lung Cancer Death</th>
+<th style="text-align: center;">No Lung Cancer Death</th>
+<th style="text-align: center;">Total</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong>Smokers</strong></td>
+<td style="text-align: center;">80</td>
+<td style="text-align: center;">19,920</td>
+<td style="text-align: center;">20,000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Non-Smokers</strong></td>
+<td style="text-align: center;">5</td>
+<td style="text-align: center;">19,995</td>
+<td style="text-align: center;">20,000</td>
+</tr>
+</tbody>
+</table>
+<ol type="1">
+<li><strong>Calculate the Risk Difference (RD):</strong>
+<ul>
+<li><em>Work/Result:</em>
+<ul>
+<li><em>80 / 20,000 = 0.004</em></li>
+<li>5 / 20,000 = 0.00025</li>
+<li>RD = 0.004 - 0.00025 = 0.00375 or 0.375%</li>
+</ul></li>
+<li><em>Interpretation: The overall chance of dying of lung cancer is 0.375% higher for those that smoke versus those that don’t smoke.</em></li>
+</ul></li>
+<li><strong>Calculate the Risk Ratio (RR):</strong>
+<ul>
+<li><em>Work/Result:</em>
+<ul>
+<li>0.004 / 0.00025 = 16</li>
+</ul></li>
+<li><em>Interpretation: If you smoke, your chances of dying of lung cancer are 16 times higher than those that don’t smoke.</em></li>
+</ul></li>
+</ol>
+</section>
+<section id="b.-case-control-study-asbestos-and-lung-cancer" class="level3">
+<h3 class="anchored" data-anchor-id="b.-case-control-study-asbestos-and-lung-cancer">B. Case-Control Study: Asbestos and Lung Cancer</h3>
+<p>This example is based on classic occupational health studies investigating the link between <strong>asbestos exposure</strong> (a toxic fiber used in construction) and <strong>lung cancer</strong>. Researchers recruited 150 patients with lung cancer (cases) and 300 individuals without lung cancer (controls).</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: center;">Asbestos Exposure</th>
+<th style="text-align: center;">No Asbestos Exposure</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong>Cases (Lung Cancer)</strong></td>
+<td style="text-align: center;">45</td>
+<td style="text-align: center;">105</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Controls (No Cancer)</strong></td>
+<td style="text-align: center;">30</td>
+<td style="text-align: center;">270</td>
+</tr>
+</tbody>
+</table>
+<ol type="1">
+<li><strong>Calculate the Odds Ratio (OR):</strong>
+<ul>
+<li><em>Work/Result:</em>
+<ul>
+<li>(45 * 270) / (30 * 105) = 3.86</li>
+</ul></li>
+</ul></li>
+<li><strong>Interpretation:</strong> Interpret the OR in terms of the “odds of exposure” for cases compared to controls.
+<ul>
+<li><em>Answer: The odds of exposure is 3.86 times higher for those who were exposed to asbestos versus the controls.</em></li>
+</ul></li>
+<li><strong>Conceptual Check:</strong> Based on the “Estimating Risk” slides, why is it impossible to calculate a “Risk Ratio” (RR) using the data from a Case-Control table like this?
+<ul>
+<li><em>Answer: You can’t calculate a risk ratio with this information because a risk ratio requires us to know the attack rates for the exposed and the non exposed. In order to get attack rates, you have to know the ratio of the exposed cases to the number exposed as well as the non exposed cases to the number of non exposed, which information isn’t provided in a case-control study.</em></li>
+</ul></li>
+</ol>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

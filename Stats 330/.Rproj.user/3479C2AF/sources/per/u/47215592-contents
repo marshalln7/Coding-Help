@@ -1,0 +1,70 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+## -------------------------------
+## Step 1: Simulate data
+## -------------------------------
+
+set.seed(123)
+
+n_per_group <- 30
+groups <- factor(rep(LETTERS[1:8], each = n_per_group))
+
+response <- rnorm(
+  n = length(groups),
+  mean = rep(seq(0, 3.5, length.out = 8), each = n_per_group),
+  sd = 1
+)
+
+dat <- data.frame(
+  group = groups,
+  y = response
+)
+
+
+## -------------------------------
+## Step 2: One-way ANOVA (summary only)
+## -------------------------------
+
+anova_fit <- aov(y ~ group, data = dat)
+anova_summary <- summary(anova_fit)
+
+anova_summary
+
+
+## -------------------------------
+## Step 3: Pairwise comparisons (summary-style)
+## -------------------------------
+
+pairwise_fit <- pairwise.t.test(
+  dat$y,
+  dat$group,
+  p.adjust.method = "none"
+)
+
+pairwise_summary <- summary(pairwise_fit)
+
+pairwise_summary
+
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).

@@ -1,0 +1,7 @@
+"0","# <your code here>"
+"0","correlation <- cor(cars$Weight, cars$MPG)"
+"0","print(correlation)"
+"1","[1]"
+"1"," -0.7105168"
+"1","
+"

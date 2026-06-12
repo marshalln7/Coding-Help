@@ -1,0 +1,6 @@
+"0",""
+"0","# Boxplot for age"
+"0","ggplot(data = heart) +"
+"0","  geom_boxplot(mapping = aes(y = age, x = chd)) +"
+"0","  theme(aspect.ratio = 1) +"
+"0","  coord_flip()"

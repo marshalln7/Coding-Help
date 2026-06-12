@@ -1,0 +1,6 @@
+"0","fit_int <- glm(switch ~ log(arsenic) + dist + educ + assoc + dist:educ,"
+"0","                data = wells,"
+"0","                family = binomial)"
+"0",""
+"0","# I chose to use AIC because I don't really want to penalize for model complexity no much right now as much as predictive accuracy"
+"0","AIC(fit_base, fit_log, fit_spline, fit_int)"

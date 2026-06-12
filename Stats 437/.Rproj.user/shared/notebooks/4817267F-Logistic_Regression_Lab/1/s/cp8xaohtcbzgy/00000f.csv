@@ -1,0 +1,3 @@
+"0","# anova(nested_model, full_model, test = ""LRT"")"
+"0","# anova(nested_model, full_model, test = ""Chisq"") ### equivalent test"
+"0",""

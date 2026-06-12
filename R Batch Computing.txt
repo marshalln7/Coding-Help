@@ -1,0 +1,10 @@
+Connect to the VPN if necessary
+
+ssh msn39@stat-u01.byu.edu
+
+R CMD BATCH --no-save --no-restore myScript.R & but replace myScript.R
+
+The & makes it run in the background to free up your terminal
+
+top command will show you if it's running
+q gets you out

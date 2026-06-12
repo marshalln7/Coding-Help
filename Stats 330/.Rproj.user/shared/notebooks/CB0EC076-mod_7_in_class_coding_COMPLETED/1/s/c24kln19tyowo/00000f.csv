@@ -1,0 +1,3 @@
+"0",""
+"0","# Does there appear to be multicollinearity based on the correlation plot?"
+"0","corrplot(cor(heart[,-8]))"

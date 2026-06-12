@@ -1,0 +1,216 @@
+---
+title: "Module 3 - Simple Linear Regression Model Inference"
+subtitle: <center> <h1>In-Class Analysis</h1> </center>
+format: 
+  html:
+    embed-resources: true 
+---
+
+```{=html}
+<style type="text/css">
+  h1.title {
+    font-size: 40px;
+    text-align: center;
+  }
+</style>
+```
+
+```{r setup, include=FALSE}
+# load packages here
+library(tidyverse)
+library(car)
+```
+
+## Data
+
+This in-class analysis uses the Windmill data set that we have used previously in Module 1. The Windmill data set contains measurements of wind speed (in meters per second m/s) at a **candidate site (CSpd) (column 1)** and at an accompanying **reference site (RSpd) (column 2)** for 1,116 areas. Download the Windmill.txt file from Canvas, and put it in the same folder as this quarto file.
+
+Do the following:
+
+1.  Read in the data set, assign it to a variable `wind`, and take a look at the top 15 rows.
+2.  Create a scatterplot of the data, and overlay the fitted linear regression line.
+3.  Apply linear regression to the data with `CSpd` as response and `RSpd` as predictor.
+4.  Save the model fitted values $\hat{y}$ and the residuals.
+5.  Examine the summary of the model fit using the `summary` function. (For help on this function, type `?summary.lm` in your R console.)
+
+```{r}
+# When performing step 3, use the format lm(y ~ x, data = wind), where
+# y and x are the variable names for the response and predictor
+
+# 1. 
+wind <- read_table("Windmill.txt")
+
+# 2.
+ggplot(data = wind, aes(RSpd, CSpd)) +
+  geom_point() +
+  geom_smooth(se = F)
+
+# 3. 
+wind_lm <- lm(CSpd ~ RSpd, data = wind)
+
+# 4.
+resids <- wind_lm$residuals
+y_hat <- wind_lm$fitted.values
+
+# 5.
+summary(wind_lm)
+
+```
+
+## Statistical Inference for the Slope
+
+#### Using the formula from class, compute $\mathrm{\widehat{Std.Err.}}(\hat{\beta}_1)$, the standard error of the OLS estimator for the slope. Check your answer by comparing with the standard error reported in the summary above.
+
+```{r}
+S_XX <- sum((wind$RSpd - mean(wind$RSpd))^2)
+s_e <- sqrt(sum(resids^2/(nrow(wind) - 2)))
+# OR
+s_e <- summary(wind_lm)$sigma
+
+(b1_hat_std_err <- s_e / sqrt(S_XX))
+
+```
+
+The value $\mathrm{\widehat{SE}}(\hat{\beta}_1) =$ `r round(b1_hat_std_err, digits = 4)` matches the value from the summary output above.
+
+#### Use the `confint` R function to create a 99% confidence interval for the slope. How would you interpret this interval? What would you expect to change about this interval if the level was changed to 90%, and why?
+
+```{r}
+# Uncomment the code below to generate the CI. You must replace my_lm with
+# the name of the variable to which you assigned the linear model fit
+# If you remove 'par = 2', you will get CIs for the intercept and slope instead
+# of just the slope. You can also use par = "RSpd".
+
+
+CI_slope_99 <- confint(wind_lm, par = 2, level = 0.99)
+CI_slope_99
+```
+
+We are 99% confident that the change in average wind speed at the candidate site will be between 0.71 and 0.81 m/s when the wind speed at the reference site increases by 1 m/s. The interval would shrink somewhat if the level was changed to 90%. Intuitively, this happens because we are imposing a lower level of confidence. Mathematically, the t-percentile in the CI formula would decrease, which would then decrease the length of the interval.
+
+#### Use the fitted model output and the R function `pt()` to conduct a two-sided hypothesis test on the slope, that the slope is not equal to 0. The test statistic and p-value you obtain should match those in the output from `summary`. \*Note that the `summary` output results from a two-sided test. Use `?pt` if you are not sure what this function does.
+
+```{r}
+tstat <- wind_lm$coefficients[2] / b1_hat_std_err
+pval <- 2 * pt(abs(tstat), 
+               df = nrow(wind) - 2,
+               lower.tail = FALSE)
+pval
+```
+
+The p-value is extremely small, so we reject the null hypothesis and conclude that the average wind speed at a candidate site has a statistically significant linear relationship with wind speeds at the reference sites.
+
+## Statistical Inference for the Mean Response
+
+#### Using the `predict` function, calculate a 90% confidence interval for the average wind speed at the candidate site when the measured wind speed at the reference site is 8 m/s.
+
+```{r}
+# Uncomment the code below to create the CI, again replacing my_lm with the 
+# appropriate variable name
+CI_90_x8 <- predict(wind_lm, 
+                    newdata = data.frame(RSpd = 8), 
+                    interval = 'confidence',
+                    level = .9)
+CI_90_x8
+```
+
+#### Create a confidence band for all average wind speeds at hypothetical candidate sites corresponding to all reference site wind speeds within the range of the data.
+
+```{r}
+# If wind.base.plot is your base scatterplot of wind speeds (not including the 
+# fitted regression line), the following code will produce the desired plot
+
+wind.base.plot <- ggplot(data = wind, aes(RSpd, CSpd)) +
+  geom_point()
+
+wind.base.plot + 
+  geom_smooth(method = 'lm', 
+              se = TRUE,
+              level = .9) # for a 90%  CI
+
+```
+
+## Statistical Inference for the Individual Observations
+
+#### Using the `predict` function, calculate an 90% prediction interval for the wind speed at a future candidate site when the wind speed at the reference cite is 8 m/s. Explain why, even though the level is the same as the level used above for the confidence interval of the mean response, the prediction interval is much wider.
+
+```{r}
+PI_90_x8 <- predict(wind_lm, 
+                    newdata = data.frame(RSpd = 8), 
+                    interval = 'predict',
+                    level = .9)
+PI_90_x8
+```
+
+The interval is wider because it is for a single measurement of wind speed at the candidate site, as opposed to the average wind speed at that candidate site.
+
+#### Using the `predict` function with a data frame of many $x$ values (use the `seq` R function starting at the minimum of `RSpd` and going to the maximum of `RSpd`), create a prediction band for candidate site wind speeds across all values of reference site wind speeds. Overlay this prediction band on your previous scatterplot using the `geom_line` function twice.
+
+```{r}
+
+RSpd_grid <- seq(min(wind$RSpd), max(wind$RSpd), length.out = 100)
+wind_PI <- predict(wind_lm, 
+                   level = 0.9,
+                   newdata = data.frame(RSpd = RSpd_grid),
+                   interval = "prediction") |>
+  as_tibble() |>
+  mutate(RSpd = RSpd_grid) |>
+  rename("CSpd" = fit)
+
+wind.base.plot +
+    geom_smooth(method = 'lm', se = FALSE) + 
+  geom_line(data = wind_PI, aes(y = lwr), color = "red") +
+  geom_line(data = wind_PI, aes(y = upr), color = "red")
+
+# The code below will generate the desired band as well
+
+wind.base.plot +
+  geom_ribbon(data = wind_PI,
+              aes(ymin = lwr, ymax = upr),
+              alpha = 0.25, # This just changes the opacity of the band
+              outline.type = 'both') +
+    geom_smooth(method = 'lm', se = FALSE)
+```
+
+## ANOVA for Regression
+
+#### Using only the lm model summary output above (i.e., without using the `aov()` or `anova()` functions), complete the ANOVA table below for your fitted linear regression model (places with a `?` should be replaced by your answer). **Once you are finished, use R to construct the ANOVA table and verify your calculations**.
+
+| Source   | Degrees of Freedom | Sum of Squares | Mean Square |
+|----------|:------------------:|:--------------:|:-----------:|
+| RSpd     |         1          |     9015.6     |   9015.6    |
+| Residual |        1114        |    6775.75     |    6.08     |
+| Total    |        1115        |    15791.34    |             |
+
+```{r}
+anova(wind_lm)
+```
+
+#### What value in the ANOVA table gives the variance estimate $\hat{\sigma}^2$ (or $s_e^2$)?
+
+The MSE or Mean Square of the Residuals. It is 6.08.
+
+#### Calculate R-Squared (Coefficient of Determination) using the values from the ANOVA table above. The value you get should match the value from the `summary` function you used above.
+
+```{r}
+R_sq <- 1 - (6775.75/15791.34) 
+R_sq
+summary(wind_lm)$r.squared
+
+# Difference is due to rounding error.
+```
+
+#### Recall that the total sum of squares (SST, also called $S_{YY}$) is $\sum_{i = 1}^n (Y_i - \overline{Y})^2.$ Using the fitted model, verify that
+
+$$
+  SSE = SST(1 - R^2).
+$$ Since $SST$ is the total variability in the $Y_i$s, and $SSE$ is the variability left in the residuals *after* regression is performed, $R^2$ can be interpreted as the **proportion of variability in the response explained by a linear relationship with the response**.
+
+```{r}
+SSE <- sum(resids^2)
+SSE
+
+15791.34 * (1 - R_sq)
+
+# Difference is due to rounding error.
+```

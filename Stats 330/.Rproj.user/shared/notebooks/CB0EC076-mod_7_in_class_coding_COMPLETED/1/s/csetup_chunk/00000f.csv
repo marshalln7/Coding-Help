@@ -1,0 +1,24 @@
+"0","# load packages here"
+"0","library(tidyverse)"
+"0","library(corrplot)  # for the correlation matrix"
+"0","library(bestglm)  # for variable selection"
+"2","Warning: package ‘bestglm’ was built under R version 4.3.3"
+"2","Loading required package: leaps
+"
+"2","Warning: package ‘leaps’ was built under R version 4.3.3"
+"0","library(car)  # for the VIFs"
+"0","library(pROC)  # for the ROC curve"
+"2","Warning: package ‘pROC’ was built under R version 4.3.3"
+"2","Type 'citation(""pROC"")' for a citation.
+"
+"2","
+Attaching package: ‘pROC’
+
+"
+"2","The following objects are masked from ‘package:stats’:
+
+    cov, smooth, var
+
+"
+"0","library(ROCR)  # for the color-coded ROC curve"
+"2","Warning: package ‘ROCR’ was built under R version 4.3.3"

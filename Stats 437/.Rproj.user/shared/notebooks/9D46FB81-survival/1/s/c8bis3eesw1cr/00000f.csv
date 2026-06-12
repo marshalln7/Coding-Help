@@ -1,0 +1,5 @@
+"0","data(""GBSG2"", package = ""TH.data"")"
+"0","# summary(GBSG2)"
+"0",""
+"0","GBSG2 = GBSG2 %>% "
+"0","  mutate(tgrade = factor(tgrade))"

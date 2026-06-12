@@ -1,0 +1,255 @@
+---
+title: "Module 6 - Multiple Linear Regression Additional Variable Types"
+subtitle: <center> <h1>In-Class Analysis</h1> </center>
+format: 
+  html:
+    embed-resources: true 
+---
+
+```{=html}
+<style type="text/css">
+h1.title {
+font-size: 40px;
+text-align: center;
+}
+</style>
+```
+
+```{r setup, include=FALSE}
+# load packages here
+library(tidyverse)
+```
+
+## Data and Description
+
+What determines how much you get paid? The answer to this question varies from company to company because different companies have different salary guidelines. One company decided to investigate the salary differentials in its computer department. The Salary data set contains the following measurements:
+
+| Variable | Description |
+|----|----|
+| Salary | Quarterly salary of the employee |
+| Experience | Number of years of experience of the employee |
+| Education | Level of education (HS = High School, BS = Bachelors, and BS+ = Advanced Degree) |
+| Manager | Is the employee a manager (Yes or No) |
+
+According to company policy, the experience, education, and manager status of an employee should (almost completely) determine the employee’s salary.
+
+Do the following:
+
+1.  Download the "Salary.txt" file from Canvas and put it in the same folder as this quarto file.
+2.  Read in the data set, call it "salary", and change the class of the Education and Manager columns to be factors. You can do this using the `mutate` function from tidyverse and `as.factor`.
+
+```{r}
+salary <- read_table("Salary.txt") |>
+  mutate(Education = as.factor(Education), Manager = as.factor(Manager))
+```
+
+## Explore the Data (EDA)
+
+### Explore the distribution of the categorical variables.
+
+Refer to the `summary` function to numerically understand/explore the categorical variables.
+
+```{r}
+summary(salary)
+```
+
+### Create a scatterplot matrix
+
+Use the `plot` or `pairs` function (or `ggpairs` from GGally package) to create a scatterplot matrix.
+
+```{r, fig.align='center'}
+library(GGally)
+
+ggpairs(salary)
+```
+
+### Plot Salary vs Experience
+
+To assess the relationship between Salary and Experience, create a scatterplot with Salary on the $y$-axis and Experience on the $x$-axis.
+
+```{r, fig.align='center'}
+ggplot(data = salary, aes(Experience, Salary)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = F)
+```
+
+### Plot Salary vs Education
+
+Create a boxplot with Salary on the $y$-axis and Education on the $x$-axis.
+
+```{r, fig.align='center'}
+ggplot(data = salary) +
+  geom_boxplot(mapping = aes(x = Education, y = Salary))
+```
+
+### Plot Salary vs Manager
+
+Create a boxplot with Salary on the $y$-axis and Manager on the $x$-axis.
+
+```{r, fig.align='center'}
+ggplot(data = salary) +
+  geom_boxplot(mapping = aes(x = Manager, y = Salary))
+```
+
+### Create a color- and shape-coded scatterplot comparing all variables
+
+To assess the relationship between Salary and Experience, Education, and Manager, create a color- and shape-coded scatterplot with Salary on the $y$-axis, Experience on the $x$-axis, colored by Education, and with shapes determined by Manager. Hint: in the `mapping = aes()` function, simply include `color = Education, shape = Manager`.
+
+```{r, fig.align='center'}
+ggplot(salary, aes(x = Education, y = Salary, color = Education, shape = Manager)) +
+  geom_point(size = 4) +
+  labs(title = "Scatter Plot with Color and Shape Encoding",
+       x = "Education",
+       y = "Salary",
+       color = "Education",
+       shape = "Manager") +
+  theme_minimal()
+```
+
+### Create an interaction plot to determine if including an Education/Manager interaction makes sense.
+
+A quick note about colors. Choosing colors for plots is an important part of statistical visualization. There is a great website, colorbrewer2.org, that provides groups of colors that look good together. There are also options you can use to find colorblind-safe colors and print-friendly colors. The colors I use below came from that website. #1b9e77 is the HEX code for the dark green color, #d95f02 is the dark orange color, and #7570b3 is the dark purple color. I chose the number of data classes to be 3, the nature of my data to be qualitative, I checked the colorblind-safe box, and I picked the first color class called "3-class Dark2." As a side note, this website has been incorporated in to R through the package `RColorBrewer`.
+
+```{r, fig.align='center'}
+# Either one of these will do:
+# interaction plot colored by Manager
+interaction.plot(x.factor = salary$Education, 
+                 trace.factor = salary$Manager, 
+                 response = salary$Salary,
+                 col = c("#1b9e77", "#d95f02"),
+                 lwd = 2,
+                 trace.label = "Manager",
+                 ylab = "Average Quarterly Salary ($)",
+                 xlab = "Education")
+
+# interaction plot colored by Education
+interaction.plot(x.factor = salary$Manager, 
+                 trace.factor = salary$Education, 
+                 response = salary$Salary,
+                 col = c("#1b9e77", "#d95f02", "#7570b3"),
+                 lwd = 2,
+                 trace.label = "Education",
+                 ylab = "Average Quarterly Salary ($)",
+                 xlab = "Manager")
+```
+
+## Multiple Linear Regression
+
+### Fit a multiple linear regression model to the data (without using manually coded indicator variables) and show the summary of the model. Call the model `salary_lm`.
+
+Hint: in the `lm` function, type `Salary ~ .`. The `.` tells R to include all variables in the data set as predictors (excluding the variable you identify as the response). (Note: This should NOT match the coefficients in the notes - we used a different baseline level than R does by default.)
+
+```{r, fig.align='center'}
+# code here
+```
+
+### Answer these questions in your head:
+
+What levels of Education and Manager did R use as the baseline levels?
+
+What levels of Education and Manager did we use in our class notes as the baseline levels?
+
+### Relabel the Education factor levels so HS is the baseline.
+
+```{r, fig.align='center'}
+# You can do this like this:
+levels(salary$Education)  # order of levels originally
+salary$Education <- factor(salary$Education, levels = c("HS", "BS", "BS+"))
+
+# Or like this:
+salary <- salary |> 
+  mutate(Education = fct_relevel(Education, "HS"))
+```
+
+### Now re-fit a multiple linear regression model to the data (without using manually coded indicator variables). You should see that R is now using HS as the baseline for Education.
+
+```{r, fig.align='center'}
+# code here
+```
+
+### We can get the same output as above if we use indicator variables instead of letting R create them "under the hood." Create indicator variables for *all* levels of Education and Manager.
+
+```{r, fig.align='center'}
+# your code here
+```
+
+### Fit an over-parameterized multiple linear regression model to the data by using ALL indicator variables in the model. What does R do? (Note: this output should NOT match the notes.)
+
+Note: You should no longer use the \~. notation - you will need to list out each covariate/indicator function separately.
+
+```{r, fig.align='center'}
+# your code here
+```
+
+### Fit a multiple linear regression model to the data using SOME of the indicator variables in the model so that Education=HS and Manager=No is the baseline. This should match the output that R produced once we changed the order of the levels for Education so that "HS" was the first level. This output should also match the first fitted model in our class notes.
+
+```{r, fig.align='center'}
+# Your code here
+```
+
+### Create 95% confidence intervals for the coefficients.
+
+Hint: use the `confint` function, and do not specify `parm`.
+
+```{r}
+# code here
+```
+
+### Create a confidence interval for the average of Salary for a manager with a BS education and 10 years experience.
+
+Hint: use the `predict` function with the `newdata` argument looking like this: `newdata = data.frame(Experience = 10, EducationBS = 1, EducationBSplus = 0, ManagerYes = 1)`.
+
+```{r}
+# code here
+```
+
+### Create a prediction interval for the Salary of a manager with a BS education and 10 years experience. Your interval should match the one in the course notes.
+
+Hint: use the `predict` function.
+
+```{r}
+# code here
+```
+
+### Plot the fitted model. (This should match the plot in the notes, though the colors may be different.)
+
+Here is the code:
+
+```{r, fig.align='center'}
+ggplot(salary) +
+  geom_point(mapping = aes(x = Experience,
+                           y = Salary, 
+                           color = Education, 
+                           shape = Manager)) +
+  geom_line(mapping = aes(x = Experience,
+                          y = predict(salary_lm), 
+                          color = Education, 
+                          linetype = Manager)) +
+  theme(aspect.ratio = 1)
+```
+
+### Fit a multiple linear regression model to the data using SOME of the indicator variables in the model so that Education=HS and Manager=No is the baseline AND include the interaction between Education and Manager. The coefficients should match the ones in the course notes.
+
+Hint: To include an interaction term in the model between, say, "x1" and "x2", your model could look like "y \~ x1 + x2 + x1:x2". You can also use a short-hand version like this: "y \~ x1\*x2", where the asterisk is code for including both the main effects and the interaction term.
+
+```{r, fig.align='center'}
+# code here
+```
+
+### We would like to test if the overall interaction between Education and Manager is significant. To do this, use the `anova` function and input the model you created without interactions and the model you just created (with interactions).
+
+```{r}
+# code here
+```
+
+### Plot the fitted model that includes the interaction between Education and Manager.
+
+Similar code as above (just change the model name).
+
+```{r}
+# code here
+```
+
+## Summary and Conclusions
+
+Through our analyses, we learned that the effect of managerial level on salary depended on education level. We learned how to work with categorical variables and interaction variables to produce an appropriate model for this data set. Please note that you should now take your final model and check to make sure all assumptions are met before proceeding.

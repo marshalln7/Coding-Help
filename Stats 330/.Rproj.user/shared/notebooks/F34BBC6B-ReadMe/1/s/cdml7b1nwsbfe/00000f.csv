@@ -1,0 +1,2 @@
+"0","data <- select(data, -""Country"")"
+"0","data <- select(data, -""Rank"")"

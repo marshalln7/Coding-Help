@@ -1,0 +1,6 @@
+[1,"==> quarto preview hw3.qmd --to pdf --no-watch-inputs --no-browse\n\n"]
+[1,"pandoc \n  to: latex\n  output-file: hw3.tex\n  standalone: true\n  pdf-engine: lualatex\n  variables:\n    graphics: true\n    tables: true\n  default-image-extension: pdf\n  \nmetadata\n  documentclass: scrartcl\n  classoption:\n    - DIV=11\n    - numbers=noendperiod\n  papersize: letter\n  header-includes:\n    - \\KOMAoption{captions}{tableheading}\n  block-headings: true\n  title: 'Homework #3 — Diagnostics & Intro to Causal Inference'\n  author: Marshall Nielsen\n  \n"]
+[1,"\nRendering PDF\nrunning lualatex - 1\n"]
+[1,"  This is LuaHBTeX, Version 1.22.0 (TeX Live 2025) \n   restricted system commands enabled.\n  \nrunning lualatex - 2\n"]
+[1,"  This is LuaHBTeX, Version 1.22.0 (TeX Live 2025) \n   restricted system commands enabled.\n  \n\nOutput created: hw3.pdf\n\nWatching files for changes\n"]
+[1,"Browse at http://localhost:3483/web/viewer.html\nListening on http://127.0.0.1:3483/\n"]

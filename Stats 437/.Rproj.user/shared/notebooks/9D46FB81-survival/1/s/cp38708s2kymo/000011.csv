@@ -1,0 +1,7 @@
+"0","survived_ds <- GBSG2 |>"
+"0","  filter(cens == 0)"
+"0",""
+"0","returned_ds <- GBSG2 |>"
+"0","  filter(cens == 1)"
+"0",""
+"0","hist(survived_ds$age)"

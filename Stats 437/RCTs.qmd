@@ -1,0 +1,722 @@
+---
+title: "Randomized Trials: Power, Type I Error, and Drug Development Phases"
+subtitle: "Chapter 8 — Review + Worked Examples"
+author: "Philip White"
+format:
+  revealjs:
+    slide-number: true
+    incremental: true
+    theme: serif
+    css: slides.css
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+## Learning goals
+
+By the end of class, you should be able to:
+
+-   Define **type I error** ($\alpha$), **type II error** ($\beta$), and **power** (1 - $\beta$)
+-   Explain (in words and math) how **sample size**, **effect size**, and **variability** drive power
+-   Derive power and sample size for a **two-sample** $z$-test step-by-step
+-   Use `power.t.test` in R to estimate power (and sanity-check formulas)
+-   Use **simulation** in R to estimate power (and sanity-check formulas)
+-   Describe **Phase I–IV** drug development and why phase boundaries are often *fuzzy*
+
+------------------------------------------------------------------------
+
+## Big picture
+
+-   Randomized trials try to answer: *Does an intervention change outcomes (endpoints)?*
+-   Statistical design tries to answer (before data): *How often will we be wrong?*
+
+Key theme:
+
+> A “negative” trial can mean either **no effect** *or* a **false negative**.
+
+> A “positive” trial can mean either **effect** *or* a **false positive**.
+
+------------------------------------------------------------------------
+
+## The beads story (intuition for sampling variation)
+
+::::: columns
+::: {.column width="70%"}
+We observe only a **sample**, but want to infer something about a **population**.
+
+-   Even if two treatments are identical, samples can look different (**chance**).
+-   Even if treatments differ, samples can look similar (**chance**).
+
+This is the origin of:
+
+-   False positives (type I error)
+-   False negatives (type II error)
+:::
+
+::: {.column width="30%"}
+![](image/beads.png){width="95%"}
+:::
+:::::
+
+------------------------------------------------------------------------
+
+## Endpoints: How do we measure a disease?
+
+-   In clinical trials, an **endpoint** is an outcome or an event that can be measured clearly to determine whether a study intervention.
+
+-   Clinical: Measures how people "feel, function, and survive." **vs.**
+
+-   Surrogate: Measures that *predict* or *correlate* with clinical benefit.
+
+-   Hard: Objective or definitive (e.g., death, stroke) **vs.**
+
+-   Soft: Subjective, less definitive (e.g., self-reported pain)
+
+-   Primary: The main outcome for determining study success and/or regulatory approval. **vs.**
+
+-   Secondary: Other important outcomes, but not the main basis for approval.
+
+-   What do you find?
+
+-   Google: "common endpoint for clinical trial in" you choose a disease.
+
+------------------------------------------------------------------------
+
+## The 2×2 table of truth vs. decision
+
+Let $H_0$ be “no treatment difference” and $H_A$ be “a difference exists”.
+
+| Reality | Our conclusion: *fail to reject* $H_0$ | Our conclusion: *reject* $H_0$ |
+|----|----|----|
+| $H_0$ true | Correct | **Type I error** (prob = $\alpha$) |
+| $H_A$ true | **Type II error** (prob = $\beta$) | Correct (prob = $1-\beta$) |
+
+------------------------------------------------------------------------
+
+## Definitions (what you should be able to say out loud)
+
+-   **Type I error (**$\alpha$): concluding there is a difference when, in reality, there is no difference.
+-   **Type II error (**$\beta$): missing a real difference.
+-   **Power (**$1-\beta$): probability we detect a difference **if** it truly exists.
+
+------------------------------------------------------------------------
+
+## Why power matters
+
+Low power makes trials hard to interpret:
+
+-   A non-significant result does **not** imply “no effect”
+-   Small trials can miss clinically important effects
+-   Underpowered trials can waste resources and expose participants to risk with little chance of learning
+
+------------------------------------------------------------------------
+
+## One-sided vs two-sided tests
+
+-   **Two-sided**: detect differences in either direction
+
+-   **One-sided**: detect only one direction (e.g., improvement)
+
+-   What types of null hypothesis are we used to?
+
+-   $H_0: \mu = 0$
+
+-   $H_0: \mu_1 - \mu_2 = 0$
+
+-   $H_0: \beta_j = 0$
+
+-   In clinical trials, directional null hypotheses are quite common.
+
+-   Imagine that we want to show the treatment is better (higher) than control.
+
+-   $H_0: \mu_\text{control} \geq \mu_\text{treat}$. Assume that the control group is as good or better than the treatment group.
+
+-   With this type of one-sided test, we usually use a half of the $\alpha$. So, 0.025 instead of 00.05.
+
+------------------------------------------------------------------------
+
+## What determines sample size?
+
+To plan $n$ (per group sample size), you must specify (at least):
+
+1.  **Target effect size** (the smallest difference worth detecting)
+2.  **Variability** of the outcome ($\sigma$ or similar)
+3.  One-sided vs two-sided test
+4.  Significance level $\alpha$
+
+-   often 0.05 for two-sided test, 0.025 for one-sided test
+
+5.  Desired power $1-\beta$ (often 0.80 or 0.90)
+
+-   Sometimes you can only afford a certain $n$ and want to know what the power will be.
+
+------------------------------------------------------------------------
+
+## Setup: two-sample $z$-test (means)
+
+We compare two independent groups:
+
+-   Group 1: $X_1,\dots,X_n \sim N(\mu_1,\sigma^2)$
+-   Group 2: $Y_1,\dots,Y_n \sim N(\mu_2,\sigma^2)$
+
+Assume $\sigma$ is known. If $n$ large enough, that z-approximation is reasonable for $t$-test.
+
+Define:
+
+-   $\bar X$ = mean of group 1
+-   $\bar Y$ = mean of group 2
+-   $\Delta = \mu_1-\mu_2$
+
+We test:
+
+-   $H_0: \Delta = 0$
+-   $H_A: \Delta \neq 0$ (two-sided)
+
+------------------------------------------------------------------------
+
+## Step 1: sampling distribution of $\bar X-\bar Y$
+
+Because means of normals are normal:
+
+$$
+\bar X \sim N\left(\mu_1, \frac{\sigma^2}{n}\right),\qquad
+\bar Y \sim N\left(\mu_2, \frac{\sigma^2}{n}\right)
+$$
+
+Independence implies:
+
+$$
+\bar X-\bar Y \sim N\left(\mu_1-\mu_2, \frac{\sigma^2}{n}+\frac{\sigma^2}{n}\right)
+= N\left(\Delta, \frac{2\sigma^2}{n}\right).
+$$
+
+So the standard error is:
+
+$$
+SE(\bar X-\bar Y) = \sigma\left(\frac{2}{n}\right)^{1/2}.
+$$
+
+------------------------------------------------------------------------
+
+## Step 2: define the test statistic
+
+$$
+Z = \frac{(\bar X-\bar Y)-0}{\sigma(2/n)^{1/2}}.
+$$
+
+Under $H_0$ (i.e., $\Delta=0$):
+
+$$
+Z \sim N(0,1).
+$$
+
+------------------------------------------------------------------------
+
+## Step 3: choose the rejection rule to control $\alpha$
+
+For a two-sided test at level $\alpha$:
+
+$$
+\text{Reject } H_0 \text{ if } |Z| > z_{1-\alpha/2}.
+$$
+
+That is,
+
+-   $z_{1-\alpha/2}$ is the $(1-\alpha/2)$-quantile of $N(0,1)$
+-   Example: if $\alpha=0.05$, then $z_{0.975}\approx 1.96$
+
+------------------------------------------------------------------------
+
+## Step 4: compute power under a specific alternative
+
+Pick a specific effect size $\Delta=\delta$ that we want power for. For simplicity, we'll assume that $\delta > 0$.
+
+Under $H_A$ with $\Delta=\delta$:
+
+$$
+\bar X-\bar Y \sim N\left(\delta, \frac{2\sigma^2}{n}\right)
+$$
+
+So
+
+$$
+Z = \frac{(\bar X-\bar Y)}{\sigma(2/n)^{1/2}}
+\sim N\left(\frac{\delta}{\sigma(2/n)^{1/2}}, 1\right).
+$$
+
+Define the **noncentrality**:
+
+$$
+\lambda = \frac{\delta}{\sigma(2/n)^{1/2}} = \frac{\delta }{\sigma } \left(\frac{n}{2} \right)^{1/2}.
+$$
+
+------------------------------------------------------------------------
+
+## Step 5: express power as a probability
+
+Power is:
+
+$$
+\text{Power} = P\left(|Z| > z_{1-\alpha/2}\ \big|\ \Delta=\delta\right).
+$$
+
+If $Z\sim N(\lambda,1)$, then
+
+$$
+\text{Power} = P\left(Z > z_{1-\alpha/2}\right) + P\left(Z < -z_{1-\alpha/2}\right).
+$$
+
+Using the standard normal CDF $\Phi$:
+
+\begin{align*}
+\text{Power} = 1 - \beta \\ 
+&=\Big[1-\Phi\big(z_{1-\alpha/2}-\lambda\big)\Big]
++ \Phi\big(-z_{1-\alpha/2}-\lambda\big) \\
+&\approx 1-\Phi\big(z_{1-\alpha/2}-\lambda\big).
+\end{align*}
+
+(For $\delta>0$, the second term is usually tiny, but it’s part of the exact two-sided expression.)
+
+------------------------------------------------------------------------
+
+## Step 6: solve for $n$ (planning sample size)
+
+Common planning approach: approximate power for a two-sided test by focusing on the “correct” tail.
+
+Target power $1-\beta$ and effect $\delta$: $$1-\beta \approx 1-\Phi\left(z_{1-\alpha/2}-\lambda\right).$$
+
+Set: $\Phi\left(z_{1-\alpha/2}-\lambda\right) = \beta \Rightarrow z_{1-\alpha/2}-\lambda = z_{\beta}.$
+
+So: $\lambda = z_{1-\alpha/2}-z_{\beta} = z_{1-\alpha/2}+z_{1-\beta}.$
+
+Substitute $\lambda = \dfrac{\delta n^{1/2}}{\sigma 2^{1/2}}$. So,
+
+$$
+\frac{\delta n^{1/2}}{\sigma 2^{1/2}} = z_{1-\alpha/2}+z_{1-\beta}
+$$
+
+Square both sides:
+
+$$
+n = 2\left(\frac{\sigma\left(z_{1-\alpha/2}+z_{1-\beta}\right)}{\delta}\right)^2.
+$$
+
+This is the classic “equal-$n$, known-$\sigma$” planning formula.
+
+------------------------------------------------------------------------
+
+## Worked example (numbers)
+
+Suppose:
+
+-   $\sigma = 10$
+-   We want to detect $\delta = 3$ units
+-   Two-sided $\alpha=0.05$
+-   Power $=0.80$ (so $\beta=0.20$)
+
+Quantiles:
+
+-   $z_{1-\alpha/2} = z_{0.975} \approx 1.96$
+-   $z_{1-\beta} = z_{0.80} \approx 0.84$
+
+Plug in:
+
+$$
+n = 2\left(\frac{10(1.96+0.84)}{3}\right)^2
+= 2\left(\frac{10\cdot 2.80}{3}\right)^2
+= 2\left(\frac{28}{3}\right)^2
+= 2\cdot \frac{784}{9}
+\approx 174.2
+$$
+
+So we plan $n=175$ per group (round up).
+
+------------------------------------------------------------------------
+
+## R: compute $n$ from the formula
+
+```{r}
+alpha <- 0.05 # There's a 5 percent chance of getting that result given there's nothing significant going on
+power_target <- 0.80 # There's an 80 percent chance of detecting a true effect
+sigma <- 10 # your standard deviation of phase shifts within each condition group
+delta <- 3 # expected phase shift difference between groups
+
+z_alpha <- qnorm(1 - alpha/2)
+z_beta  <- qnorm(power_target)  # z_{1-beta}
+
+n_per_group <- 2 * ( sigma * (z_alpha + z_beta) / delta )^2
+n_per_group
+```
+
+------------------------------------------------------------------------
+
+## R: check power analytically (exact two-sided)
+
+```{r}
+alpha <- 0.05
+n <- ceiling(n_per_group)
+sigma <- 10
+delta <- 3
+
+zcrit <- qnorm(1 - alpha/2)
+lambda <- delta * sqrt(n) / (sigma * sqrt(2))
+
+power_exact <- (1 - pnorm(zcrit - lambda)) + pnorm(-zcrit - lambda)
+c(n = n, power_exact = power_exact)
+```
+
+------------------------------------------------------------------------
+
+## power.t.test
+
+::::: columns
+::: {.column width="40%"}
+`power.t.test` has the following arguments (one must be passed as `NULL`):
+
+-   `n` is the per group sample size
+-   `delta` is the between group difference
+-   `power` is the desired power.
+-   `sd` is the subject-level standard deviation.
+-   `sig.level` is the type-1 error rate ($\alpha$).
+:::
+
+::: {.column width="60%"}
+```{r}
+power.t.test(
+  n = 100,
+  delta = 4,
+  sd = 10,
+  sig.level = 0.05,
+)
+```
+:::
+:::::
+
+------------------------------------------------------------------------
+
+## power.t.test for many `n` and $\delta$
+
+::::: columns
+::: {.column width="50%"}
+```{r,fig.show='hide'}
+library(tidyverse)
+
+plot_data = expand_grid(n = 10:100,
+                        delta = c(2,3,5,7)
+) %>% 
+  mutate(power = power.t.test(n = n,
+                              delta = delta,
+                              sd = 10,
+                              sig.level = 0.05,
+                              power = NULL)$power
+  )
+
+plot_data %>% mutate(delta = factor(delta)) %>% 
+  ggplot(aes(x = n,y = power,
+             col = delta,group = delta)) + 
+  theme_bw(base_size =16) + 
+  geom_line() + 
+  labs(
+    x = "n (per group sample size)",
+    y = "Power",
+    col = "Tx Effect",
+    title = "Power with Various Effect Sizes"
+  )
+```
+:::
+
+::: {.column width="50%"}
+```{r,echo = FALSE,fig.width=7,fig.height= 7}
+plot_data %>% mutate(delta = factor(delta)) %>% 
+  ggplot(aes(x = n,y = power,col = delta,group = delta)) + 
+  theme_bw(base_size =16) + 
+  geom_line() + 
+  labs(
+    x = "n (per group sample size)",
+    y = "Power",
+    col = "Effect Size",
+    title = "Power Curves for Various Effect Sizes"
+  )
+```
+:::
+:::::
+
+------------------------------------------------------------------------
+
+## Simulation-based power (why we do it)
+
+Reasons to simulate:
+
+-   Non-normal outcomes, complex estimators, nonstandard designs
+-   Unequal $n$, missing data, clustering, noncompliance
+-   Sanity-check your analytic derivations
+
+Idea:
+
+> Simulate the full study many times, apply your analysis exactly as planned, and count how often you reject $H_0$.
+
+------------------------------------------------------------------------
+
+## Classroom Challenge: Building a Power Simulation {.smaller}
+
+**Goal:** Estimate power for a two-sample $z$-test without using a formula.
+
+### Step-by-Step Logic (The Algorithm) within for Loop
+
+1.  **Assume the Truth (**$H_A$): Set the "real" $\mu_1$, $\mu_2$, and $\sigma$ for your populations.
+2.  **Generate Data:** Randomly sample $n$ observations for Group A and $n$ for Group B.
+3.  **Run the Test:** Calculate the $z$- or $t$-statistic and check if you reject $H_0$ (is $|Z| > z_{1-\alpha/2}$?).
+4.  **The "Loop":** Repeat steps 2–3 many times (e.g., 5,000 simulations).
+5.  **Calculate Power:** What proportion of your 10,000 "trials" successfully rejected $H_0$?
+
+### Things You Need to Decide (Assumptions)
+
+-   **Effect Size (**$\delta$): How much better is the treatment? ($\mu_1 - \mu_2$)
+-   **Variability (**$\sigma$): How "noisy" is the data? (Assume equal for both groups)
+-   **Significance (**$\alpha$): Your threshold for "proof" (usually 0.05).
+-   **Sample Size (**$n$): How many people are in each group?
+
+> **Work in Pairs:** Sketch out the logic for a `for` loop in R. What variables do you need to initialize *before* the loop starts? What needs to be saved *inside* the loop?
+
+------------------------------------------------------------------------
+
+## Pseudo-code: How to structure the loop
+
+If you are stuck, think about the "skeleton" of your code:
+
+```{r}
+# 1. SETUP: Define parameters (n, sigma, delta, alpha, nsim)
+# 2. INITIALIZE: Create an empty vector to store results 
+#    e.g., results <- logical(nsim)
+
+# 3. LOOP:
+# for (s in 1:nsim) {
+#    a. Generate two vectors using rnorm()
+#    b. Calculate mean(A) - mean(B)
+#    c. Calculate the Z-statistic
+#    d. Record if abs(Z) > critical_value (TRUE/FALSE)
+# }
+
+# 4. SUMMARIZE:
+#    mean(results)  # This is your estimated power!
+```
+
+------------------------------------------------------------------------
+
+## R: simulation-based power for the $z$-test
+
+```{r}
+alpha <- 0.05
+n <- 175
+sigma <- 10
+delta <- 3
+nsim <- 10000
+
+zcrit <- qnorm(1 - alpha/2)
+reject <- logical(nsim)
+
+set.seed(1)
+for (s in 1:nsim) {
+  x <- rnorm(n, mean = 0, sd = sigma)
+  y <- rnorm(n, mean = -delta, sd = sigma)  # so mu_x - mu_y = delta
+  
+  z <- (mean(x) - mean(y)) / (sigma * sqrt(2/n))
+  reject[s] <- abs(z) > zcrit
+}
+
+mean(reject)
+```
+
+------------------------------------------------------------------------
+
+## Quick reflection
+
+-   If the simulated power differs from the formula:
+    -   Did we match the **assumptions**?
+    -   Did we implement the **same test**?
+    -   Are we in a regime where approximations are poor?
+
+------------------------------------------------------------------------
+
+## From statistics to drug development
+
+The FDA-style “Phase I–IV” language is a *framework* for goals, evidence, and risk management.
+
+We’ll use a running example:
+
+> A new antiviral drug for hospitalized respiratory infection (think: “COVID-like” severity).
+
+Same disease area across phases; goals and designs change.
+
+------------------------------------------------------------------------
+
+## Phase I (Safety)
+
+**Primary goal:** safety + dosing
+
+Typical features:
+
+-   Small
+-   Intensive monitoring
+-   Outcomes: toxicity, PK/PD, dose-limiting adverse events
+-   Often healthy volunteers (not always—e.g., oncology)
+
+Key question:
+
+> “What dose seems safe enough to study further?”
+
+------------------------------------------------------------------------
+
+## Phase I (common designs)
+
+-   Dose-escalation designs
+-   Stopping rules for unacceptable toxicity
+-   May include multiple dose levels
+
+Discussion prompt:
+
+-   What is the ethical tension in early-phase testing?
+
+------------------------------------------------------------------------
+
+## Phase II (Exploratory or Learning)
+
+**Primary goal:** early evidence of efficacy + continued safety
+
+Typical features:
+
+-   Medium
+-   Dose-finding / subgroup selection / proof-of-concept
+-   Outcomes: short-term clinical endpoints, biomarkers, virologic response
+-   Often randomized; sometimes multiple arms
+
+Key question:
+
+> “Is there a signal strong enough to justify a large confirmatory trial?”
+
+------------------------------------------------------------------------
+
+## Phase II (what can go wrong?)
+
+-   Many endpoints, many subgroup looks → false positives
+-   Over-optimistic treatment effect sizes → underpowered Phase III
+-   Surrogate endpoints that don’t translate to patient benefit
+
+Design prompt:
+
+-   If you have 3 candidate doses, how might we compare them without inflating type I error?
+
+------------------------------------------------------------------------
+
+## Phase III (Pivotal or Confirmatory)
+
+**Primary goal:** confirm efficacy and assess safety at scale
+
+Typical features:
+
+-   Large
+-   Randomized controlled trial(s)
+-   Patient-centered clinical endpoints
+-   Pre-specified primary analysis plan
+
+Key question:
+
+> “Is there convincing evidence of benefit that outweighs harms?”
+
+------------------------------------------------------------------------
+
+## Phase III - power becomes central
+
+In Phase III you must specify:
+
+-   Primary outcome + effect size worth detecting
+-   $\alpha$ (often two-sided 0.05 or one-side 0.025)
+-   Power (often 0.80 or 0.90)
+-   Multiplicity (multiple testing) strategy (multiple endpoints/interims)
+
+Discussion prompt:
+
+-   What is a clinically meaningful effect for hospitalized patients: mortality? ventilator-free days? time-to-discharge?
+
+------------------------------------------------------------------------
+
+## Phase IV
+
+**Primary goal:** postmarketing surveillance and “real-world” performance
+
+Typical features:
+
+-   Detect rare or delayed adverse events
+-   Very large populations over long time
+-   Often observational (registries, claims, EHR)
+-   Can include pragmatic randomized trials, but classic Phase IV ≠ tightly controlled RCT
+
+Key question:
+
+> “What harms/benefits appear only when millions of people use the intervention?”
+
+------------------------------------------------------------------------
+
+## Phase IV (why it matters)
+
+Rare adverse events are often invisible in Phase III:
+
+-   If an adverse event occurs 1 in 50,000, a trial with 3,000 participants won’t see it reliably.
+
+So Phase IV relies on:
+
+-   Good surveillance systems
+-   Careful denominators (exposed population size)
+-   Bias-aware observational methods
+
+------------------------------------------------------------------------
+
+## The phases are fuzzy (big idea)
+
+In practice, phases are not rigid boxes.
+
+Reasons:
+
+-   Urgency
+-   Clinical development isn't always straightforward.
+-   Scientific uncertainty (dose-finding + efficacy together)
+-   Adaptive designs that learn and confirm in one program
+-   Regulatory pathways (accelerated approval, breakthrough therapy)
+
+------------------------------------------------------------------------
+
+## Examples of “fuzzy” phase boundaries
+
+-   **Phase I/II**: safety + preliminary efficacy in the same protocol
+-   **Seamless Phase II/III**: begin confirmatory stage without fully stopping after Phase II
+-   **Platform trials**: arms enter/leave; learning is continuous
+
+Key reminder:
+
+> Phases describe **the goal of evidence**, not a single fixed design.
+
+------------------------------------------------------------------------
+
+## COVID as a concrete example (what you might remember)
+
+Many COVID therapeutics/vaccines had:
+
+-   Overlapping phases (running in parallel)
+-   Manufacturing “at risk”
+-   Rapid evidence updates and regulatory decisions
+
+Discussion prompt:
+
+-   What are the tradeoffs of speed vs certainty?
+-   Where do $\alpha$, $\beta$, and power show up in those decisions?
+
+------------------------------------------------------------------------
+
+## Wrap-up
+
+-   $\alpha$ controls false positives; $\beta$ controls false negatives; **power** = $1-\beta$
+-   For a two-sample $z$-test or $t$-test, you can derive power and invert it to plan $n$
+-   Simulation is the most general power tool (and a great check)
+-   Drug development phases (I–IV) are goal-driven—and often overlap in practice

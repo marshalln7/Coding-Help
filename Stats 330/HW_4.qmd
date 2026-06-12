@@ -1,0 +1,202 @@
+---
+title: "Homework 4"
+subtitle: Multiple Linear Regression
+author: Marshall Nielsen
+format: 
+  html:
+    embed-resources: true 
+---
+
+## 3636
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggfortify)
+library(dplyr)
+library(corrplot)
+library(car)
+library(patchwork)
+```
+
+## Data and Description
+
+Measuring body fat is complex. One method involves submerging the body in water and measuring displacement. A simpler, more accessible method would be preferable. To develop such a method, researchers collected data from 252 men, recording age (years), weight (pounds), height (inches), and three body circumference measurements (neck, chest, and abdomen, all in centimeters). Each participant’s body fat percentage (variable “brozek”) was accurately estimated using underwater weighing. The goal is to create a predictive model using these basic variables, eliminating the need for water displacement measurements.
+
+The dataset, `BodyFat.txt`, is available on Canvas. Download `BodyFat.txt` and place it in the same folder as this `.qmd` file.
+
+#### 0. Replace the text "\< PUT YOUR NAME HERE \>" (above next to "author:") with your full name.
+
+#### 1. Read in the data set, and call the data frame "bodyfat". Display a summary of the data. Remove the "row" column (which contains row numbers) from the data set.
+
+```{r}
+bodyfat <- read.table("BodyFat.txt", header = TRUE)
+bodyfat <- bodyfat %>% select(-row)
+summary(bodyfat)
+```
+
+#### 2. Display a scatterplot matrix of the data.
+
+```{r, fig.align='center'}
+plot(bodyfat)
+```
+
+#### 3. Based on the scatterplot matrix, briefly explain which variables you think will be helpful for predicting brozek and which variables you think will *not* be helpful at predicting brozek. Explain how the scatterplot helped determine your answers.
+
+Looking at the scatterplots, I think that weight, neck, chest, and abdomen are going to be the most helpful for predicting brozek, and that age and height will be less helpful. I think so because those first four show obvious positive trends when plotted against brozek, while the others are more scattered or flat.
+
+#### 4. Create and print a correlation matrix (numeric or color- and shape-coded).
+
+```{r}
+round(cor(bodyfat), 2)
+
+corrplot(cor(bodyfat), type = "upper")
+```
+
+#### 5. Based on the scatterplot matrix and the correlation matrix, are their any pairs of variables that you suspect will cause a problem in terms of multicollinearity? If so, which ones?
+
+There are at least a few. The most worrisome would probably be weight compared with neck, chest, or abdomen, neck with chest or abdomen and chest with abdomen.
+
+#### 6. Fit a multiple linear regression model to the data (no transformations). Display a summary of the results.
+
+```{r}
+linear_model <- lm(data = bodyfat, formula = brozek ~ .)
+summary(linear_model)
+```
+
+#### 7. Briefly comment on the "significance" of the variables: were you surprised by the results? Are there any variables that are significant that you think shouldn't be? Are there any variables that are not significant that you think should be?
+
+It makes sense that weight and abdomen would be significant, but it doesn't seem like neck should be over some of the other variables measured. I also feel like chest should be significant as well.
+
+#### 8. Briefly comment on the sign (+/-) of the coefficients for the variables. Are their any variables where the sign is the opposite of what you expected?
+
+Definitely. Weight for one is currently displaying a negative coefficient when it should probably be positive. Neck should also be positive in general even if it isn't the strongest predictor in the set.
+
+#### 9. Mathematically write out the *fitted* multiple linear regression model for this data set using the coefficients you found above (do not use $\beta$s). Do not use "X" and "Y" in your model - use variable names that are descriptive.
+
+$$\begin{align}
+    Body Fat Percentage &= -2.010 + 0.00501 \times Age + -0.08733 \times Weight + -0.14 \times Height + -0.4421 \times Neck + 0.0004844 \times Chest + 0.8754\times Abdomen
+    \end{align} $$
+
+#### 10. *Assuming* the model assumptions are all met, how would you interpret the coefficient for Weight?
+
+Assuming that all model assumptions are met, it would indicate that for every extra pound that someone weighs, their body fat percentage increases by one, holding all else constant.
+
+#### 11. Briefly explain what it means to "hold all else constant" when interpreting the weight coefficient.
+
+It means that assuming that all of the other factors are fixed, a change in the weight variable will show the described corresponding change in body fat percentage.
+
+#### 12. Briefly explain what the F-test indicates, as given in the model output from question 6.
+
+The F-test yielded a p-value of 2.2e-16, which we can take to mean that we can reject the null hypothesis that all six of the coefficients for the six factors are equal to zero.
+
+#### 13. Briefly interpret the *adjusted* R-squared, as reported in the model output from question 6.
+
+The adjusted R-squared is 0.7151, which tells us that about 72% of the variability observed in body fat percentage can be explained by the six variables in the model.
+
+### Questions 14-17 involve using diagnostics to determine if the primary linear regression assumptions are met. For each assumption, (1) perform appropriate diagnostics to determine if the assumption is violated, and (2) explain whether or not you think the assumption is violated and why you think that.
+
+#### 14. The X's vs Y are linear (use the residual vs. predictor plots, partial regression plots, and the residual vs. fitted values plot).
+
+```{r, fig.align='center'}
+# Residuals vs Predictors Plots
+
+residuals <- linear_model$residuals
+
+resid_vs_age <- ggplot(data = bodyfat) +
+  geom_point(mapping = aes(x = age, y = residuals)) +
+  theme(aspect.ratio = 1)
+
+resid_vs_weight <- ggplot(data = bodyfat) +
+  geom_point(mapping = aes(x = weight, y = residuals)) +
+  theme(aspect.ratio = 1)
+
+resid_vs_height <- ggplot(data = bodyfat) +
+  geom_point(mapping = aes(x = height, y = residuals)) +
+  theme(aspect.ratio = 1)
+
+resid_vs_neck <- ggplot(data = bodyfat) +
+  geom_point(mapping = aes(x = neck, y = residuals)) +
+  theme(aspect.ratio = 1)
+
+resid_vs_chest <- ggplot(data = bodyfat) +
+  geom_point(mapping = aes(x = chest, y = residuals)) +
+  theme(aspect.ratio = 1)
+
+resid_vs_abdom <- ggplot(data = bodyfat) +
+  geom_point(mapping = aes(x = abdom, y = residuals)) +
+  theme(aspect.ratio = 1)
+
+# put plots in 2 rows & 3 columns using the patchwork package
+(resid_vs_age | resid_vs_weight | resid_vs_height) /
+  (resid_vs_neck | resid_vs_chest | resid_vs_abdom)
+```
+
+```{r, fig.align='center'}
+# partial regression plots
+
+avPlots(linear_model)
+```
+
+```{r, fig.align='center'}
+autoplot(linear_model, which = 1)
+```
+
+There don't seem to be any strong signs of non linearity here. The residuals vs. predictors plots are fairly boxy, the partial regression plots seem fairly linear, and the residuals vs. fitted values plot seems mostly flat.
+
+#### 15. The errors are independent (I will answer this one for you, no need to modify the response. No points for this question).
+
+Since we do not know if the 252 men were randomly sampled from a population, we do not know if the residuals are independent or not. We will assume that they are independent for this analysis.
+
+#### 16. The errors are normally distributed (use a histogram, qq-plot, and Shapiro-Wilk test).
+
+```{r, fig.align='center'}
+# Histogram
+hist(residuals)
+```
+
+```{r, fig.align='center'}
+# Q-Q Plot
+autoplot(linear_model, which = 2)
+```
+
+```{r, fig.align='center'}
+# Diagnostic 3
+shapiro.test(residuals)
+```
+
+There is a bit of abnormality here as evidenced by the ends of the Q-Q plot, but the spread of the residuals overall looks normal and the Shapiro-Wilk test says that we fail to reject the null so I'd call it normal enough.
+
+#### 17. The errors have equal/constant variance across all values of X (use the residuals vs. predicted values plot).
+
+```{r, fig.align='center'}
+autoplot(linear_model, which = 1)
+```
+
+The assumption of constant variance appears satisfied, there only seems to be a small decrease in variance as you go across, but that could be explained by the fact that there aren't very many points on the right side.
+
+18\. Check for influential points using Cook's distance. What would you recommend doing given your findings?
+
+```{r, fig.align='center'}
+# Cook's Distance
+autoplot(linear_model, which = 4)
+```
+
+I would recommend looking into person 39. They show a Cook's distance of greater than 0.5 and much larger than any of the other patients in the sample. It would be well worth checking if there was a data entry error or if this person had any unique medical conditions or something like that.
+
+#### 19. Check for multicollinearity. For this (tacit) model assumption, compute the variance inflation factors (VIFs) and compare the VIFs to your response in question 5. Is there agreement? Is this assumption met (recall: the rule of thumb is that each VIF should be less than 10)?
+
+```{r, fig.align='center'}
+vif(linear_model)
+```
+
+This is basically in agreement with what I said in question 5. I knew that weight and abdom would be a problem, and I also thought that chest would be a problem but I guess it's not as bad as the other two.
+
+### Note: your next homework assigment will use this same data set, and you will be asked to fix the assumptions that were broken.
+
+#### 20. Briefly summarize what you learned, personally, from this analysis about the statistics, model fitting process, etc.
+
+I learned a lot from class this week and from the homework that models can often be deceiving, showing associations that are different from or even opposite from what a simple summary of a multiple linear regression is telling you. We're doing all of these tests to make sure that our model assumptions are met, but it's showing that they're worth it in the end.
+
+#### 21. Briefly summarize what you learned from this analysis *to a non-statistician*. Write a few sentences about (1) the purpose of this data set and analysis and (2) what you learned about this data set from your analysis. Write your response as if you were addressing a business manager (avoid using statistics jargon) and just provide the main take-aways.
+
+We began our analysis by making sure that all of the assumptions that we would need to make in order to run the model are true, and we found that they were, but we might have some more work to do. There are a few factors in there that are basically measuring the same thing when you think about it like weight and abdomen circumference, which can mess with the model and make the opposite trend look true from what's actually there. We know that there is significance somewhere in the model, and we can already see that weight and abdomen circumference predict body fat percentages, but we're going to need to do some more work to come up with a really robust model.

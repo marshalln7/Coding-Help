@@ -1,0 +1,300 @@
+---
+title: "Homework #5 — Binary Outcomes: Tests and Logistic Regression"
+author: Marshall Nielsen
+format: 
+  pdf:
+    toc: false
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r}
+library(tidyverse)
+```
+
+## Part I — 2×2 Tables and Two-Sample Proportion Test (By Hand)
+
+A multicenter randomized control study evaluated a new immunotherapy for advanced prostate cancer. The primary endpoint was 1-year survival after initiation of treatment.
+
+-   $X = 1$: received immunotherapy\
+-   $X = 0$: received standard care\
+-   $Y = 1$: survived at least 1 year\
+-   $Y = 0$: died within 1 year
+
+The study enrolled 600 patients (300 per group). The observed results were:
+
+|                       | $Y=1$ (Survived) | $Y=0$ (Died) | Row total |
+|----------------------:|:----------------:|:------------:|:---------:|
+| $X=1$ (Immunotherapy) |        87        |     213      |    300    |
+| $X=0$ (Standard care) |        65        |     235      |    300    |
+|          Column total |       152        |     448      |    600    |
+
+------------------------------------------------------------------------
+
+## 1. Risks and Risk Difference
+
+(a) Compute $\widehat p_1$ and $\widehat p_0$.
+
+p1 = 0.290, p0 = 0.217
+
+(b) Compute the risk difference $\widehat p_1 - \widehat p_0$.
+
+p1 - p0 = 0.073
+
+(c) Interpret the risk difference in clinical terms.
+
+It means that the chance of dying for people who get the immunotherapy survive 7 percent more of the time than people who don't get it.
+
+(d) Compute a 95% confidence interval for $p_1 - p_0$ using the **unpooled variance formula**. Show all work.
+
+image here
+
+------------------------------------------------------------------------
+
+## 2. Two-Sample Proportion Test
+
+(a) State the null and alternative hypotheses testing whether the therapy is effective.
+
+The null hypothesis is that there is no difference in the survival rate between those that receive the immunotherapy and those that don't. The alternative hypothesis is that there is a difference in the survival rate between those that receive the immunotherapy and those that do not.
+
+(b) Compute the pooled estimator $\widehat p$.
+
+p = (a + c)/n = (87 + 65)/600 = 0.253
+
+(c) Compute the standard error under $H_0$.
+
+image
+
+(d) Compute the Z-statistic.
+
+image
+
+(e) Compute the two-sided p-value.
+
+```{r}
+pnorm(2.056)
+```
+
+p = 2(1-0.9801087) = 0.0398
+
+(f) State your conclusion at $\alpha = 0.05$ in clinical language.
+
+At an alpha level of 0.05, we reject the null hypothesis that there is no difference between the survival rates of those who received the immunotherapy and those that did not.
+
+------------------------------------------------------------------------
+
+# Part II — Pearson Chi-Square Test (By Hand)
+
+## 3. Expected Counts and Chi-Square Statistic
+
+(a) Compute all four expected counts under independence.
+
+*image*
+
+(b) Verify that expected counts preserve row and column totals.
+
+*76 + 224 = 300*
+
+76 + 224 = 300
+
+76 + 76 = 152
+
+224 + 224 = 448
+
+(c) Compute Pearson’s chi-square statistic:
+
+*image*
+
+(d) State the null distribution.
+
+The null distribution would be a chi squared distribution with 1 degree of freedom
+
+(e) Compare your $\chi^2$ statistic to the square of your Z-statistic from Part I.
+
+2.056 \^ 2 = 4.23
+
+They're super close! Probably just off due to rounding error.
+
+(f) Explain why these tests are equivalent in the 2×2 case.
+
+These tests are equivalent in the 2 x 2 case because a chi squared distribution with 1 degree of freedom is the same as a Z distribution squared. Therefore when a test statistic is calculated for each of the aforementioned distributions they will come out to the same value with the same significance.
+
+------------------------------------------------------------------------
+
+# Part III — Fisher’s Exact Test (Conceptual + Computation)
+
+## 4. Fisher’s Exact Test
+
+(a) Write the formula for the hypergeometric probability of observing cell count $a$.
+
+$$
+P(a) =
+\frac{\binom{a+b}{a}\binom{c+d}{c}}
+{\binom{n}{a+c}}
+$$
+
+(b) Explain what is meant by “conditioning on the margins.”
+
+It means that we're starting with certain assumed row and column sums and building our null distribution off of that.
+
+(c) In words, explain how the two-sided p-value is computed.
+
+The two sided p-value is computed by coming up with all of the possible tables given the row and column sums and then determining the sum of the probabilities of the tables that are as extreme or more extreme than the observed table.
+
+(d) In this clinical context, when might Fisher’s exact test be preferred over chi-square?
+
+You would prefer Fisher's exact test if you have a smaller sample size, chi squared tends to struggle when the overall sample size is small or the expected counts drop below 5 because it's a discrete approximation of a continuous distribution.
+
+------------------------------------------------------------------------
+
+# Part IV — Confirming with R
+
+Now confirm your previous calculations using R.
+
+```{r}
+tab <- matrix(c(87,213,65,235), nrow=2, byrow=TRUE)
+tab
+```
+
+## 5. Two-Sample Proportion Test in R
+
+Run:
+
+```{r}
+prop.test(tab)
+```
+
+(a) Compare the chi-square statistic to your hand calculation. Comment on differences if there are any?
+
+My chi-squared statistic is a bit different, but that's probably because my calculations were done using discrete values while the R code is using a continuity correction to do the same calculation with a continuous distribution.
+
+(b) Compare the confidence interval to your hand-computed CI. Comment on differences if there are any?
+
+My bounds are pretty close, but are probably different because of the same reasons mentioned in part A.
+
+------------------------------------------------------------------------
+
+## 6. Fisher’s Exact Test in R
+
+Run:
+
+```{r}
+fisher.test(tab)
+```
+
+(a) Compare the p-value to the chi-square test.
+
+It's super close, only off by a few hundreth of a percent.
+
+(b) Explain why they may differ.
+
+They are each relying on different distributions (chi squared versus hypergeometric) which means that they might come out with slightly different areas of the tails beyond the critical value.
+
+------------------------------------------------------------------------
+
+# Part V — Logistic Regression
+
+Using the same data, create an individual-level dataset.
+
+```{r}
+df <- tibble(
+  Y = c(rep(1,87), rep(0,213), rep(1,65), rep(0,235)),
+  X = c(rep(1,300), rep(0,300))
+)
+```
+
+## 7. Fit Logistic Regression
+
+```{r}
+fit <- glm(Y ~ X, family=binomial, data=df)
+summary(fit)
+```
+
+(a) Extract $\widehat\beta_1$.
+
+```         
+0.3898
+```
+
+(b) Compute $\exp(\widehat\beta_1)$.
+
+```{r}
+exp(0.3898)
+```
+
+(c) Compare the result in (b) to the sample odds ratio.
+
+```{r}
+or <- (87 * 235) / (213 * 65)
+or
+```
+
+Sample odds ratio = ad/bc = (87 \* 235) / (213 \* 65) = 1.4767
+
+It's basically the same number, probably only off due to rounding error.
+
+(d) Compute a confidence interval for the odds ratio.
+
+```{r}
+se <- sqrt((1/87) + (1/213) + (1/235) + (1/65))
+lower <- log(or) - 1.96 * se
+upper <- log(or) + 1.96 * se
+exp(lower)
+exp(upper)
+```
+
+(e) Interpret the result in clinical terms using *percent change*.
+
+```{r}
+lower_pct <- 100 * (exp(lower) - 1)
+upper_pct <- 100 * (exp(upper) - 1)
+lower_pct
+upper_pct
+```
+
+We can be 95% confident that treatment is associated with an average increase in survival rate by somewhere between 1.899% and 114.002%
+
+------------------------------------------------------------------------
+
+## 8. Logistic Regression Assumptions
+
+Answer conceptually:
+
+(a) State the structural model assumptions of logistic regression.
+
+<!-- -->
+
+1.  The log odds are linear relative to x
+2.  Observations are independent
+3.  The response is binary
+4.  No influential points
+5.  No additional predictors required to make it make sense
+6.  No collinearity
+
+<!-- -->
+
+(b) Explain what “linearity on the log-odds scale” means. Are you concerned about this here?
+
+It means that the relationships between variables follow roughly an S-curve pattern, where the response increases with a log odds pattern compared to the predictors.
+
+(c) What does independence of observations mean? Do you think this is a reasonable assumption?
+
+It means that the chance of one person surviving doesn't depend on any of the other participants surviving.
+
+(d) Explain what could go wrong if patients were clustered by hospital.
+
+If patients were clustered by hospital you might have some problems with Simpson's paradox where it looks like the treatment is causing harm if certain hospitals tend to treat sicker patients and therefore have both more patients that receive the treatment and people who die of the disease even if the treatment is actually helping people in that group.
+
+(e) Distinguish between:
+
+-   Model assumptions
+-   Large-sample inference assumptions
+-   Assumptions required for causal interpretation
+
+Your answer should demonstrate understanding, not just bullet points.
+
+Model assumptions are basically saying that the shape of the data fits the shape of the model. If you're using a logistic regression model, your data should at least roughly follow a logistic regression shape. Large sample inference assumptions are about how we expect the statistics of a large sample to behave. For example, we assume that the sampling distribution follows a normal distribution when the underlying samples are large. Assumptions required for causal interpretation are facts that distinguish between variables that actually cause each other as opposed to variables that are merely correlated. These include things like a temporal relationship between the variables, as well as the effect commencing and ceasing as the effect commences and ceases, assuming that the cause is sufficient.
+
+------------------------------------------------------------------------

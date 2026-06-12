@@ -1,0 +1,2 @@
+"0","windmill_data <- read.table(""Windmill.txt"", header = TRUE)"
+"0","head(windmill_data)"

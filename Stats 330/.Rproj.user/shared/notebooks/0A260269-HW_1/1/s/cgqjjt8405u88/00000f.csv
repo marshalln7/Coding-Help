@@ -1,0 +1,5 @@
+"0","print(cor(windmill_data$CSpd, windmill_data$RSpd))"
+"1","[1]"
+"1"," 0.7555948"
+"1","
+"

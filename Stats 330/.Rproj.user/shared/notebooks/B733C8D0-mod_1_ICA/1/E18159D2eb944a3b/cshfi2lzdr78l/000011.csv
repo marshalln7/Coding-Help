@@ -1,0 +1,4 @@
+"0","# <your code here>"
+"0","# hint: start with this code"
+"0","ggplot(data = cars) +"
+"0","  geom_point(mapping = aes(x = Weight, y = MPG))"

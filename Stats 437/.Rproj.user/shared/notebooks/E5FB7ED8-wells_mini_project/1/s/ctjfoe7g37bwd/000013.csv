@@ -1,0 +1,6 @@
+"0",""
+"0","ggplot(wells, aes(x = educ, y = switch)) +"
+"0","  geom_smooth(method = ""glm"","
+"0","              method.args = list(family = ""binomial""),"
+"0","              se = TRUE) +"
+"0","  labs(title = ""Switching Probability vs Education"")"

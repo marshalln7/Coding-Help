@@ -1,0 +1,7 @@
+"0","# load packages here"
+"0","library(tidyverse)"
+"0","library(car)  # needed for added-variable plots "
+"0","library(corrplot)  # colored correlation matrix"
+"0","library(patchwork)  # plot plots next to each other"
+"0","library(ggfortify)"
+"0","# (You may need to install some of these packages first)"

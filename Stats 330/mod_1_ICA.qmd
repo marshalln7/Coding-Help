@@ -1,0 +1,117 @@
+---
+title: Module 1 - Simple Linear Regression
+subtitle: In-Class Coding Analysis
+format: 
+  html:
+    embed-resources: true 
+---
+
+```{r setup, include=FALSE}
+# load packages here
+library(tidyverse)
+```
+
+## Data and Description
+
+For a number of reasons, many car buyers are interested in cars with better gas mileage, so car manufacturers have an incentive to produce cars that are fuel efficient. Many factors go into determining what gas mileage a car will achieve on the road.
+
+One such factor is the **weight** of the car. In general, heavier cars will be less efficient (get fewer MPG), but manufacturers would like to understand the relationship between MPG and weight in detail. Understanding this relationship can assist them in their vehicle production decisions.
+
+The MPG data set contains measurements of the **Weight (column 1)** (in pounds) and **MPG (column 2)** of 289 cars. Download the MPGData.txt file from Canvas, and put it in the same folder as this quarto file. Now, read in the data set, and call the tibble (or data frame) "cars". Print a summary of the data and make sure the data makes sense.
+
+```{r}
+# <your code here>
+cars <- read.table("MPGData.txt", header = TRUE)
+```
+
+## Scatterplot
+
+#### Create a scatterplot of the data with variables on the appropriate axes.
+
+```{r, fig.align='center'}
+# <your code here>
+# hint: start with this code
+ggplot(data = cars) +
+  geom_point(mapping = aes(x = Weight, y = MPG))
+
+# You are welcome to use base R plotting if you'd like.
+```
+
+## Correlation Coefficient
+
+#### Report the correlation coefficient for the two variables.
+
+```{r}
+# <your code here>
+correlation <- cor(cars$Weight, cars$MPG)
+print(correlation)
+```
+
+## Linear Regression
+
+#### (a) Apply linear regression to the data. Code up the least squares estimates using the equations we derived in class for $\hat\beta_0$ and $\hat\beta_1$. (b) Next, print out a summary of the results using the `lm` function. Check that your results are the same as in part a. (c) Plot the model residuals against fitted values in a well-labeled scatterplot.
+
+```{r}
+sy <- sd(cars$MPG)
+sx <- sd(cars$Weight)
+
+beta_hat <- (sy / sx) * correlation
+
+beta_not <- mean(cars$MPG) - beta_hat * mean(cars$Weight)
+
+print(c(beta_hat, beta_not))
+
+linear_model <- lm(data = cars, MPG ~ Weight)
+
+summary(linear_model)
+
+
+# Part b) hint: use the lm() function with the formula
+# argument looking like this: MPG ~ Weight 
+# Part c) hint: the lm() function
+# contains list elements for the residuals and fitted values that information
+# from the ($residuals and $fitted.values)
+
+
+```
+
+#### Add the OLS regression line to the scatterplot.
+
+```{r, fig.align='center'}
+plot(cars$Weight, cars$MPG,
+     xlab = "Weight",
+     ylab = "MPG")
+
+abline(a = beta_not, b = beta_hat, col = "red")
+```
+
+#### What is the estimated average MPG for a car weighing 2500 pounds?
+
+```{r}
+# <your code here>
+# hint: One easy way to do this is to use the predict() function with the lm object to make 
+# predictions: 
+predict(linear_model, newdata = data.frame(Weight = 10000))
+# How would you do this without having the predict function?
+```
+
+#### Calculate the MSE, or the (unbiased) estimate of the average squared variability of the errors around the true regression line.
+
+```{r}
+predictions <- predict(linear_model)
+errors <- cars$MPG - predictions
+
+MSE <- sum(errors ** 2) / (289 - 2)
+
+errors2 <- linear_model$residuals
+# hint: see the course notes for how the MSE is computed. You can use the 
+# $residuals and $df.residual elements from the model fit to save some time/code.
+
+# Compare your answer with 
+# (summary(your_linear_model)$sigma)^2 # - uncomment this line
+# to ensure you did it correctly
+```
+
+## Summary and Conclusions
+
+*Always* start by plotting your data (exploratory data analysis: view data, create scatterplots, summarize data, etc.) before jumping into an analysis or fitting a model. We saw MPG and Weight looked to be linearly associated, so we chose to look at the correlation coefficient and then fit a simple linear regression model to the data. Make sure you know how to interpret the model coefficients!

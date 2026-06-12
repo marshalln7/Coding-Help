@@ -1,0 +1,7 @@
+"0","ggplot(data, aes(y = `Score`)) +"
+"0","  geom_boxplot(fill = ""lightblue"", color = ""black"") +"
+"0","  labs("
+"0","    title = ""Distribution of Happiness Scores"","
+"0","    y = ""Happiness Score (1-10)"""
+"0","  ) +"
+"0","  theme_minimal()"

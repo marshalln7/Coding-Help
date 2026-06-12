@@ -1,0 +1,6 @@
+"0","# Jittered Scatterplot for age"
+"0","ggplot(data = heart) +"
+"0","  geom_point(mapping = aes(y = chd, x = cigs)) +"
+"0","  geom_jitter(mapping = aes(y = chd, x = cigs),"
+"0","              height = 0.1) +"
+"0","  theme(aspect.ratio = 1)"

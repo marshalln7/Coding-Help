@@ -1,0 +1,13 @@
+"0","## The library() command loads in the package.  You may need to install the"
+"0","## package first using install.packages()"
+"0",""
+"0","library(faraway)"
+"2","Warning: package ‘faraway’ was built under R version 4.3.3"
+"2","Warning: ABI version mismatch: 
+lme4 was built with Matrix ABI version 1
+Current Matrix ABI version is 0
+Please re-install lme4 from source or restore original ‘Matrix’ package"
+"0","## Use the glimpse() or head() command to print out the first 15 or so rows of "
+"0","## the data frame teengamb"
+"0",""
+"0","head(teengamb)"

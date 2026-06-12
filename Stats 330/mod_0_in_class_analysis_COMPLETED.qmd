@@ -1,0 +1,156 @@
+---
+title: "Module 0 - Review and Introduction - Dr Sandholtz's Answers"
+subtitle: <center> <h1>In Class Analysis</h1> </center>
+format: 
+  html:
+    embed-resources: true 
+---
+
+<style type="text/css">
+h1.title {
+  font-size: 40px;
+  text-align: center;
+}
+</style>
+
+```{r setup, include=FALSE}
+# load packages here
+library(tidyverse)
+```
+
+## Data and Description
+
+The <tt> teengamb </tt> data set from the <tt> faraway </tt> package contains information on $n = 47$ British teenagers.  For each teenager, the data frame contains information on the following variables (columns in the data frame): **sex**, socioeconomic **status** score (based on parents' occupation), **income** in pounds per week, **verbal** score (words out of 12 correctly defined), and yearly gambling expenditures in pounds (**gamble**).
+
+Load the <tt> faraway </tt> package into R and examine the first 15 rows of the <tt> teengamb </tt> data frame.
+
+```{r}
+## The library() command loads in the package.  You may need to install the
+## package first using install.packages()
+
+library(faraway)
+
+## Use the glimpse() or head() command to print out the first 15 or so rows of 
+## the data frame teengamb
+
+library(tidyverse) # glimpse() is in the tidyverse
+glimpse(teengamb)
+head(teengamb, n = 15)
+
+```
+
+## Univariate Analyses
+
+Methods that investigate a single variable are referred to as *univariate* analyses.  Exploratary data analyses (EDA) take the form of descriptive statistics and plots. Produce the following univariate exploratory analyses for the **income** variable:
+
+1. Descriptive Statistics: Calculate the 5-number summary (min, max, first and third quartiles, and median), mean, standard deviation
+2. Plots: Produce a histogram
+
+```{r}
+## Use the summary(), mean(), and sd() functions.  Remember that '$' can be used
+## after the name of a data frame and before a column name to access that variable
+
+summary(teengamb) # five number summaries for all variables
+mean(teengamb$income) # sample mean of income
+sd(teengamb$income) # sample sd of income
+
+## Uncomment the following code, which uses ggplot, to generate the histogram.  
+## You can try playing with the arugments to see how it affects the plot. Ask yourself,
+## "Which of the elements in this plot are essential, and which are optional?"
+
+ggplot(data = teengamb, aes(x = income)) +
+ geom_histogram(breaks = seq(0, 15, by = 3),
+                color = 'blue',
+                fill = 'red') +
+ xlab("Income (pounds/week)") +
+ ylab("Count") +
+ labs(title = "Histogram of Weekly Income") +
+ scale_x_continuous(breaks = seq(0, 15, by = 3))
+
+# Histogram with only essentials
+ggplot(data = teengamb, aes(x = income)) +
+ geom_histogram(breaks = seq(0, 15, by = 3)) + # You could change the binwidth
+ xlab("Income (pounds/week)") +
+ ylab("Count") +
+ labs(title = "Histogram of Weekly Income") 
+
+```
+
+Produce a bar chart for **sex**.
+
+```{r}
+## The following code will produce the desired plot once you have replaced `???`
+## with the proper text and remove the comment characters
+
+teengamb$sex = factor(teengamb$sex, labels = c('M', 'F')) # Make it a factor
+ggplot(data = teengamb, aes(x = sex)) +
+ geom_bar(color = 'purple', fill = 'purple') +
+ labs(title = 'Bar Chart of Sex', y = 'Count', x = 'Sex') +
+ scale_x_discrete(labels = c('M', 'F'))
+
+```
+
+## Bivariate Analyses
+
+Methods that ask and answer questions about two variables are termed *bivariate* analyses. Often, one of the variables (the response) is of primary interest, and the researcher wants to know how the distribution of this variable is affected by another (the predictor).  Produce the same descriptive statistics and plot as in the previous section for income, but separately for males and females.
+
+```{r}
+## Use the same commands as above to compute the summary statistics, but use 
+## '[teengamb$sex == 'M']' or '[teengamb$sex == 'F']' to subset the variable by sex
+
+# For males:
+summary(teengamb[teengamb$sex == "M",])  
+mean(teengamb$income[teengamb$sex == "M"])
+sd(teengamb$income[teengamb$sex == "M"]) 
+
+# For females:
+summary(teengamb[teengamb$sex == "F",])  
+mean(teengamb$income[teengamb$sex == "F"])
+sd(teengamb$income[teengamb$sex == "F"]) 
+
+## The following code will produce the desired plot once you have replaced `???`
+## with the proper text and remove the comment characters
+
+ggplot(data = teengamb, aes(x = income, fill = sex)) +
+ geom_histogram(breaks = seq(0, 15, by = 1.5), alpha = 0.5, position = 'identity') +
+ xlab("Income (pounds/week)") +
+ ylab("Count") +
+ labs(title = "Histogram of Weekly Income by Sex") +
+ scale_x_continuous(breaks = seq(0, 15, by = 3))
+```
+
+Next, assuming the variance of **income** is the same between males and females, conduct a two-sample $t$-test to determine if the difference in sample means of income between males and females constitutes statistically significant evidence for a difference in the corresponding population means at level $\alpha = 0.05.$  Also, compute a 95\% confidence interval for the difference in means under the same assumption.  Do things change if you allow the variances to be different between males and females?
+
+```{r}
+## Use the t.test() function to conduct the test and confidence interval. You will
+## need to use the 'var.equal' argument to allow equal variances.  If you 
+## are unsure of how to use this function, try accessing the help file. 
+
+t.test(income ~ sex, data = teengamb, var.equal = TRUE) # Fail to reject null 
+t.test(income ~ sex, data = teengamb) # Still fail to reject null
+
+```
+
+The first few modules of STAT 330 will deal with *simple linear regression*, which is a method of bivariate analysis that can sometimes be suitable for investigating the relationship between a numeric response and another numeric predictor.  For now, run the code below and discuss the following questions with a classmate:
+
+1. Does the dark line look like a good approximation to the underlying relationship between **income**, the predictor, and **gamble**, the response?
+2. How should the estimated slope be interpreted in terms of income and gambling expenditures?
+3. What would you expect the plot below (called a scatterplot) to look like if there were **no relationship** between income and gambling expenditures?
+
+```{r}
+## Uncomment the following code to produce a scatterplot of all pairs
+## (income, gamble) in the data set, and also adds a "line of best fit".
+## The shaded area indicates the uncertainty in this line. The slope of the
+## line is computed after the plot is produced.
+
+ggplot(data = teengamb, aes(x = income, y = gamble)) +
+ geom_point() +
+ geom_smooth(method = lm, se = TRUE, color = 'blue') +
+ theme(aspect.ratio = 1)
+lm(gamble ~ income, data = teengamb)$coefficients[2] # estimated slope of line of best fit
+```
+
+<!-- - *italics* -->
+<!-- - **bold**, and -->
+<!-- - `code font` -->
+

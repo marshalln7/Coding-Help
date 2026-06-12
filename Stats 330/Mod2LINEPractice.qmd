@@ -1,0 +1,45 @@
+---
+title: LINE Assumption Practice
+subtitle: In-Class Exercise
+format: 
+  html:
+    embed-resources: true 
+---
+
+## Load Data
+
+Begin by loading the "Mod2PracticeData1.Rdata' file into your environment. It contains 8 datasets, labeled dat0, dat1, dat2, etc., each with two variables, x and y.
+
+```{r}
+load('Mod2PracticeData1.Rdata')
+```
+
+## Practice Evaluating Assumptions
+
+Let's begin by plotting the dat0 dataset and fitting a simple linear regression model, treating y as the response and x as the explanatory variable:
+
+```{r}
+data_now <- dat2 # swap out for dat1, dat2, ..., dat7
+plot(data_now$x, data_now$y)
+mod <- lm(y ~ x, data_now)
+```
+We will assume that the independence assumption has been satisfied. To evaluate the linearity and equal variance assumptions, let's produce a fitted values vs. residuals plot.
+```{r}
+plot(mod$fitted.values, mod$residuals)
+abline(h = 0, col = 'red')
+```
+
+Do we observe anything in this plot that suggests that either the L or E assumptions have been violated? How obvious or egregious is the violation if so?
+
+To assess normality we can produce a histogram or Q-Q plot of the model's residuals:
+```{r}
+hist(mod$residuals)
+plot(mod, which = 2)
+print(shapiro.test(mod$residuals))
+```
+Do we observe anything in these plots that leads us to think that the normality assumption has been violated?
+
+## Repeat with other data sets
+Working in groups with your neighbors, practice evaluating the LINE assumptions for the other 7 datasets you loaded into your R environment. 
+
+For each dataset, discuss whether you think each assumption is totally satisfied, totally violated, or something in between. Ask yourself in which contexts you might feel comfortable using the model for a given dataset despite whatever problems with the assumptions you might observe. To save time, you could simply replace "dat0" with "dat1" (or "dat2", "dat3", etc.) in the above code rather than writing new code when evaluating each dataset. 

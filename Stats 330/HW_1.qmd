@@ -1,0 +1,173 @@
+---
+title: "Homework 1 | STAT 330"
+subtitle: Simple Linear Regression
+author: Marshall Nielsen
+format: 
+  pdf: 
+    embed-resources: true 
+---
+
+```{r setup, include=FALSE}
+# load any necessary packages here
+```
+
+## Data and Description
+
+Energy can be produced from wind using windmills. Choosing a site for a wind farm (i.e. the location of the windmills), however, can be a multi-million dollar gamble. If wind is inadequate at the site, then the energy produced over the lifetime of the wind farm can be much less than the cost of building the operation. Hence, accurate prediction of wind speed at a candidate site can be an important component in the decision to build or not to build. Because the energy produced is proportional to the square of the wind speed, even small errors in wind speed prediction can lead to significant impacts.
+
+A potential approach for predicting wind speed at a candidate site is to use wind speed data from a nearby reference site. A reference site is a nearby location where the wind speed is already being monitored and should, theoretically, be similar to the candidate site. If the reference sites turn out to be good predictors of the candidate sites, leveraging the information from the reference site would allow windmill companies to estimate the wind speed at the candidate sites without going through a costly and lengthy data collection period.
+
+The Windmill data set contains measurements of wind speed (in meters per second m/s) at **candidate sites (CSpd) (column 1)** and at corresponding **reference sites (RSpd) (column 2)** for 1,116 sites. Download the Windmill.txt file from Canvas (which can be found in Files -\> Data Sets), and put it in the same folder as this quarto file.
+
+#### 0. Replace the text "\< PUT YOUR NAME HERE \>" (above next to "author:") with your full name.
+
+#### 1. Briefly explain why simple linear regression could be a useful tool for this problem.
+
+Simple linear regression would be a useful tool for this problem because we want to investigate the nature of the relationship between the wind speeds at candidate sites and their corresponding reference sites. This means that we have one variable and one response, making simple linear regression appropriate.
+
+#### 2. Read in the data set into an object named "wind". Display the first 6 rows of the data.
+
+```{r}
+windmill_data <- read.table("Windmill.txt", header = TRUE)
+head(windmill_data)
+```
+
+#### 3. What is the response/outcome variable in this situation? (Think about which variable makes the most sense to be the response.)
+
+The wind speed at the candidate sites, or the CSpd column.
+
+#### 4. What is the explanatory variable in this situation?
+
+The wind speed at the reference sites, or the RSpd column.
+
+#### 5. Create a scatterplot of the data with variables on the appropriate axes. Add descriptive axis labels with appropriate units. Display the plot.
+
+```{r, fig.align='center'}
+#Got some help here for creating a scatter plot using ggplot from chatgpt
+
+library(ggplot2)
+
+# Create scatter plot with labels
+plot <- ggplot(windmill_data, aes(x = RSpd, y = CSpd)) +
+  geom_point(color = "blue", size = 1) +
+  labs(title = "The Relationship Between Wind Speeds at Reference Sites and Candidate Sites",
+       x = "Reference Site Wind Speed (m/s)",
+       y = "Candidate Site Wind Speed (m/s)") +
+  theme_minimal()
+
+# Print the plot
+print(plot)
+```
+
+#### 6. Briefly describe the relationship between RSpd and CSpd in terms of its linearity, direction, and strength.
+
+It seems to be a clear linear relationship in a positive direction, but it isn't as strong as it could be.
+
+#### 7. Calculate the correlation coefficient for the two variables (you may use a built-in R function). Display the result.
+
+```{r}
+print(cor(windmill_data$CSpd, windmill_data$RSpd))
+```
+
+#### 8. What does the calculated correlation coefficient tell you about the direction and strength of the linear association between these two variables?
+
+It tells me that it is a strong positive linear correlation.
+
+#### 9. The equation below shows the generic **theoretical** simple linear regression model. Update the equation to use variable names that are meaningful in context of this dataset (i.e., rename "x" and "y").
+
+$$\begin{align}
+    CSpd &= \beta_0 + \beta_1 \times RSpd + \epsilon_i \\ 
+    \epsilon_i &\stackrel{iid}{\sim} N(0, \sigma^2) 
+    \end{align} $$
+
+<!-- Note that you can write math in quarto by surrounding the math in dollar signs. Also, you can include text in math equations by surrounding the text in "\text{TEXT HERE}": $\text{Weight}_i$  -->
+
+#### 10. Add the OLS regression line to the scatterplot you created in 5. Display the result. (If you use `ggplot` with `geom_smooth`, You can remove the standard error line with the option `se = FALSE`).
+
+```{r, fig.align='center'}
+plot <- ggplot(windmill_data, aes(x = RSpd, y = CSpd)) +
+  geom_point(color = "blue", size = 1) +
+  labs(title = "The Relationship Between Wind Speeds at Reference Sites and Candidate Sites",
+       x = "Reference Site Wind Speed (m/s)",
+       y = "Candidate Site Wind Speed (m/s)") +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  theme_minimal()
+
+print(plot)
+```
+
+#### 11. (a) Apply linear regression to the data. (b) Display a summary of the results from the `lm` function. (c) Plot the model residuals against fitted values in a well-labeled scatterplot.
+
+```{r}
+linear_regression <- lm(CSpd ~ RSpd, data = windmill_data)
+summary(linear_regression)
+
+fitted_values <- fitted(linear_regression)
+residuals <- residuals(linear_regression)
+
+plot <- ggplot(data = data.frame(fitted_values, residuals), aes(x = fitted_values, y = residuals)) +
+  geom_point(color = "blue", size = 1) +
+  labs(title = "Plotting the Residuals Against the Corresponding Fitted Values",
+       x = "Fitted Values",
+       y = "Residuals") +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  theme_minimal()
+
+print(plot)
+```
+
+#### 12. Update the fitted simple linear regression model shown below with the coefficients you obtained from your linear model (i.e., update the $\hat{\beta}$s with specific numeric values). Round to two decimal places.
+
+$$\widehat{\text{Cand Speed}}_i = 3.14 + 0.76 \times \text{Ref Speed}_i.$$
+
+#### 13. Interpret the coefficient for the slope.
+
+This means that for every 1 m/s increase in the wind speed at the reference site, there tends to be a 0.76 m/s increase in wind speed at the candidate site.
+
+#### 14. Interpret the coefficient for the intercept.
+
+This means that if there were no wind at the reference site, the wind at the candidate site would tend to be about 3.14 m/s.
+
+#### 15. What is the estimated average wind speed at the candidate site (CSpd) when the wind speed at the reference site (RSpd) is 12 m/s? Show your code, and display the result.
+
+```{r}
+RSpd <- c(12)
+prediction <- predict(linear_regression, newdata = data.frame(RSpd))
+print(prediction)
+```
+
+#### 16. Briefly explain why it would be inadvisable to answer this question using your model: What is the estimated average wind speed at the candidate site (CSpd) when the wind speed at the reference site (RSpd) is 25 m/s?
+
+It would be inadvisable because while we could make a prediction, we don't have any points that are close to that wind speed that were used to make the model, and so there could be a different relationship between variable and response when the wind is blowing that hard – we just don't know.
+
+#### 17. Calculate the (unbiased) estimate of $\sigma^2$. Show your code, and display the result.
+
+```{r}
+sigma_squared <- summary(linear_regression)$sigma^2
+print(sigma_squared)
+```
+
+#### 18. Create the design matrix for your model and store it in a variable. Display the first few rows of the design matrix.
+
+```{r}
+design_matrix <- model.matrix(linear_regression)
+head(design_matrix)
+```
+
+#### 19. Obtain the parameter estimates for this same model using matrix multiplication. You should use the following in your computations: t() \[transpose\], solve() \[inverse\], and %\*% \[matrix multiplicaton\]. Display the result.
+
+```{r}
+X <- design_matrix
+y <- windmill_data$CSpd
+
+beta_hat <- solve((t(X) %*% X)) %*% (t(X) %*% y)
+print(beta_hat)
+```
+
+#### 20. Briefly summarize what you learned, personally, from this analysis about statistics, the model fitting process, R, etc.
+
+I do a lot of model fitting in Python for my job, but it was good to learn how to do it in R, and that it isn't so different. It was helpful to see the different ways that we can leverage the functions and attributes to arrive at our estimations for the Beta values, which I'm thinking might be useful in different situations where we're using regressions at different points in the modeling process.
+
+#### 21. Briefly summarize what you learned about the scientific question from this analysis *to a non-statistician*. Write a few sentences about (1) the purpose of this data set and analysis and (2) what you learned about this data set from your analysis. Write your response as if you were addressing a business manager (avoid using statistics jargon) and just provide the main take-aways.
+
+For this study, we chose to analyze data on the relationship between the wind speed at a candidate site for a wind farm and the wind speed at reference sites nearby to explore the strength of the relationship between the two. We found that there was a strong positive relationship between the two wind speeds, and that for every meter per second faster that the wind was blowing at a reference site, the wind would blow about 0.75 meters per second faster at the candidate site.
